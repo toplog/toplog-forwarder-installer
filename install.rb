@@ -4,6 +4,9 @@ require 'json'
 require 'readline'
 require 'net/http'
 require 'uri'
+require 'fileutils'
+
+$toplog_server = "toplog.demo"
 
 def request_toplog(endpoint, method)
 	uri = URI(endpoint)
@@ -24,25 +27,55 @@ def request_toplog(endpoint, method)
 
 end
 
-def install_forwarder(config)
-    script_path = File.expand_path(File.dirname(__FILE__))
+def download_file(file, path)
+
+	FileUtils.mkdir_p(File.dirname(path))
+
+	Net::HTTP.start('b3f2d1745ecfa432ffd7-9cf6ac512d93e71c4a6d3546d0b6c571.r97.cf2.rackcdn.com') { |http|
+		resp = http.get(file)
+		open(path, "wb") { |file| file.write(resp.body) } }
+
+end
+
+def download_cloud_file(file, path)
+
+	FileUtils.mkdir_p(File.dirname(path))
+
+	Net::HTTP.start($toplog_server) { |http|
+		resp = http.get(file)
+		open(path, "wb") { |file| file.write(resp.body) } }
+
+end
+
+def install_forwarder(distrib, config)
     #create config
-    File.open('/usr/bin/toplog/logstash-forwarder/config.json', 'w') { |file| file.write(config) }
-	`sudo mkdir /usr/bin/toplog`
-	`sudo dpkg -i $scriptPath/builds/logstash-forwarder_0.3.1_amd64.deb `
+    config_path = '/usr/bin/toplog/logstash-forwarder/config.json'
+    FileUtils.mkdir_p(File.dirname(config_path))
+    File.open(config_path, 'w') { |file| file.write(config) }
+
+	case distrib
+	when 'debian'
+		download_file('/logstash-forwarder_0.3.1_amd64.deb', '/opt/logstash-forwarder/logstash-forwarder_0.3.1_amd64.deb')
+		`sudo dpkg -i /opt/logstash-forwarder/logstash-forwarder_0.3.1_amd64.deb`
+		download_file('/downloads/debian/logstash_forwarder_debian.init', '/etc/init.d/logstash-forwarder')
+		download_file('logstash_forwarder_debian.defaults', '/etc/default/logstash-forwarder')
+	when 'redhat'
+		download_file('/logstash-forwarder-0.3.1-1.x86_64.rpm', '/opt/logstash-forwarder/logstash-forwarder-0.3.1-1.x86_64.rpm')
+		`sudo rpm -i /opt/logstash-forwarder/logstash-forwarder-0.3.1-1.x86_64.rpm`
+		download_file('/logstash_forwarder_redhat.init', '/etc/init.d/logstash-forwarder')
+		download_file('/logstash_forwarder_redhat.sysconfig', '/etc/sysconfig/logstash-forwarder')
+	else
+		puts "Exception, unrecognized method in request_toplog"
+	end
 	`sudo cp -r /opt/logstash-forwarder /usr/bin/toplog/ `
 	`sudo rm -rf /opt/logstash-forwarder`
-	`sudo cp -r $scriptPath/ssl /usr/bin/toplog/logstash-forwarder/`
+	download_file('/toplog-forwarder.pub', '/usr/bin/toplog/logstash-forwarder/ssl/toplog-forwarder.pub')
 	#set up forwarder as service
-	`sudo wget http://toplog.demo/downloads/#{distrib}/toplog.tar.gz`
-	`tar -xzvf toplog.tar.gz #{script_path}`
-	`sudo cp #{script_path}/client_uploader_deb/logstash_forwarder_debian.init /etc/init.d/logstash-forwarder`
 	`sudo chmod 0755 /etc/init.d/logstash-forwarder`
-	`sudo cp #{script_path}/client_uploader_deb/logstash_forwarder_debian.defaults /etc/default/logstash-forwarder`
-	`sudo mkdir /var/log/toplog/`
+	FileUtils.mkdir_p('/var/log/toplog/')
 	`sudo touch /var/log/toplog/logstash-forwarder.log`
 	`sudo /etc/init.d/logstash-forwarder start`
-
+ 	puts "Successfully installed TopLog's Logstash-Forwarder. Please check /var/log/toplog/logstash-forwarder.log to confirm"
 end
 
 #get package based on distrib
@@ -57,7 +90,7 @@ puts "Please enter your authentication token:"
 token = gets.chomp
 
 #get user's log types
-endpoint = "http://toplog.demo/configurations?access_token=#{token}"
+endpoint = "http://#{$toplog_server}/configurations?access_token=#{token}"
 types = request_toplog(endpoint, 'get')
 
 #prompt to select type
@@ -80,7 +113,7 @@ path_selected = false
 puts "Please enter full path to the log file you wish to forward (example: /path/to/my.log)"
 #get log path
 until path_selected
-	path = Readline.readline("> ", true)
+	path = Readline.readline("> ", true).rstrip
 	if File.exist?(path)
 		path_selected = true
 	else
@@ -92,17 +125,17 @@ puts "Please enter a name for your stream:"
 stream_name = gets.chomp
 
 #create stream, get config json
-endpoint = URI.escape("http://toplog.demo/streams?access_token=#{token}&configuration_id=#{user_type_id}&name=#{stream_name}")
+endpoint = URI.escape("http://#{$toplog_server}/streams?access_token=#{token}&configuration_id=#{user_type_id}&name=#{stream_name}")
 response = request_toplog(endpoint, 'post')
 
 if response['success']
 	#replace path in config
 	response['config']['files'].each do |file|
-		file['paths'] = path
+		file['paths'] = [path]
 	end
 
 	#install forwarder
-	install_forwarder(response['config'].to_json)
+	install_forwarder(distrib, response['config'].to_json)
 
 else
 	puts "Could not create stream, please try again"
