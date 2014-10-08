@@ -57,7 +57,7 @@ def install_forwarder(distrib, config)
 	when 'debian'
 		download_file('/logstash-forwarder_0.3.1_amd64.deb', '/opt/logstash-forwarder/logstash-forwarder_0.3.1_amd64.deb')
 		`sudo dpkg -i /opt/logstash-forwarder/logstash-forwarder_0.3.1_amd64.deb`
-		download_file('/downloads/debian/logstash_forwarder_debian.init', '/etc/init.d/logstash-forwarder')
+		download_file('/logstash_forwarder_debian.init', '/etc/init.d/logstash-forwarder')
 		download_file('logstash_forwarder_debian.defaults', '/etc/default/logstash-forwarder')
 	when 'redhat'
 		download_file('/logstash-forwarder-0.3.1-1.x86_64.rpm', '/opt/logstash-forwarder/logstash-forwarder-0.3.1-1.x86_64.rpm')
@@ -78,11 +78,49 @@ def install_forwarder(distrib, config)
  	puts "Successfully installed TopLog's Logstash-Forwarder. Please check /var/log/toplog/logstash-forwarder.log to confirm"
 end
 
+def uninstall_forwarder(distrib)
+	`sudo service logstash-forwarder stop`
+
+	case distrib
+	when 'debian'
+		`sudo rm /etc/default/toplog-forwarder`
+		`sudo dpkg --remove logstash-forwarder`
+	when 'redhat'
+		`sudo rm /etc/sysconfig/toplog-forwarder`
+		`sudo rpm -e logstash-forwarder-0.3.1-1.x86_64`
+	else
+		puts "Exception, unrecognized method in request_toplog"
+	end
+
+	`sudo rm /etc/init.d/toplog-forwarder`
+	`sudo rm -rf /usr/bin/toplog/`
+
+end
+
 #get package based on distrib
 if system( "which dpkg >/dev/null 2>/dev/null" )
 	distrib = 'debian'
 else
 	distrib = 'redhat'
+end
+
+case ARGV[0]
+when '-u'
+	uninstall_forwarder(distrib)
+	exit
+when '-r'
+	task = reinstall
+when '-c'
+	task = change_config
+when '-h', '--help'
+	puts "[-r] Reinstall TopLog Logstash-Forwarder"
+	puts "[-u] Uninstall TopLog Logstash-Forwarder"
+	puts "[-c] Change uploader configuration"
+	puts "[-h] or [--help] List install.sh command args"
+	exit
+else
+	puts "Invalid argument #{ARGV[0]}\nPlease enter 'sudo ruby install.rb -h' to see full list of possible command arguments"
+	exit
 end
 
 # get auth token
@@ -132,10 +170,11 @@ if response['success']
 	#replace path in config
 	response['config']['files'].each do |file|
 		file['paths'] = [path]
+		file['key'] = token
 	end
 
 	#install forwarder
-	install_forwarder(distrib, response['config'].to_json)
+	install_forwarder(distrib, JSON.pretty_generate(response['config']))
 
 else
 	puts "Could not create stream, please try again"
