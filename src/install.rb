@@ -69,7 +69,7 @@ def install_forwarder(distrib, config)
 		download_file('/logstash-forwarder_0.3.1_amd64.deb', '/opt/logstash-forwarder/logstash-forwarder_0.3.1_amd64.deb')
 		`sudo dpkg -i /opt/logstash-forwarder/logstash-forwarder_0.3.1_amd64.deb`
 		download_file('/logstash_forwarder_debian.init', '/etc/init.d/logstash-forwarder')
-		download_file('logstash_forwarder_debian.defaults', '/etc/default/logstash-forwarder')
+		download_file('/logstash_forwarder_debian.defaults', '/etc/default/logstash-forwarder')
 	when 'redhat'
 		download_file('/logstash-forwarder-0.3.1-1.x86_64.rpm', '/opt/logstash-forwarder/logstash-forwarder-0.3.1-1.x86_64.rpm')
 		`sudo rpm -i /opt/logstash-forwarder/logstash-forwarder-0.3.1-1.x86_64.rpm`
