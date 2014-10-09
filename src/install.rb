@@ -57,6 +57,7 @@ def download_cloud_file(file, path)
 end
 
 def install_forwarder(distrib, config)
+	puts "Installing Logstash-Forwarder . . ."
 	config_complete = false
     #create config
     config_path = '/usr/bin/toplog/logstash-forwarder/config.json'
@@ -118,7 +119,7 @@ def change_config
 		until token_valid
 			# get auth token
 			puts "Please enter your authentication token:"
-			token = gets.chomp
+			token = $stdin.gets.strip
 
 			#get user's log types
 			endpoint = "http://#{$toplog_server}/configurations?access_token=#{token}"
@@ -138,7 +139,7 @@ def change_config
 
 		until type_selected
 			puts "Please enter the corresponding id number of the log type you wish to forward"
-			user_type_id = gets.chomp
+			user_type_id = $stdin.gets.strip
 
 			if user_type_id =~ /\A\d+\z/ and types.has_key?(user_type_id)
 				type_selected = true
@@ -160,7 +161,7 @@ def change_config
 		end
 
 		puts "Please enter a name for your stream:"
-		stream_name = gets.chomp
+		stream_name = $stdin.gets.strip
 		stream_config = create_stream(token, path, user_type_id, stream_name)
 		if is_multiple
 			previous_config['files'].push(stream_config['files'][0])
@@ -172,7 +173,7 @@ def change_config
 
 		until confirm_valid
 			puts "Would you like to create another stream [yes/no]?"
-			confirm = gets.chomp
+			confirm = $stdin.gets.strip
 			case confirm.downcase
 			when 'y', 'yes'
 				if !is_multiple #first run
@@ -223,6 +224,8 @@ def check_installed(required)
 	end
 end
 
+puts "TopLog's Logstash-Forwarder install script, 'press cntrl-\\' to exit"
+
 #get package based on distrib
 if system( "which dpkg >/dev/null 2>/dev/null" )
 	distrib = 'debian'
@@ -250,6 +253,16 @@ if !ARGV[0].nil?
 		puts "[-c] Change uploader configuration"
 		puts "[-h] or [--help] List install.sh command args"
 		exit
+	when '--host'
+		if !ARGV[1].nil?
+			$toplog_server = ARGV[1]
+			check_installed(false)
+			config = change_config
+			install_forwarder(distrib, config)
+		else
+			puts "Invalid hostname"
+			exit
+		end
 	else
 		puts "Invalid argument #{ARGV[0]}\nPlease enter 'sudo ruby install.rb -h' to see full list of possible command arguments"
 		exit
