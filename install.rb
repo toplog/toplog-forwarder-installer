@@ -9,7 +9,12 @@ require 'fileutils'
 $toplog_server = "toplog.demo"
 
 def request_toplog(endpoint, method)
+	response = Hash.new
+	response['success'] = false
+
+	endpoint = URI.escape(endpoint)
 	uri = URI(endpoint)
+
 	case method
 	when 'get'
 		request = Net::HTTP::Get.new(uri.to_s)
@@ -19,11 +24,15 @@ def request_toplog(endpoint, method)
 		puts "Exception, unrecognized method in request_toplog"
 	end
 	request['Accept'] = 'application/json'
-	response = Net::HTTP.start(uri.host, uri.port) {|http|
+	raw_response = Net::HTTP.start(uri.host, uri.port) {|http|
 	  http.request(request)
 	}
+	if raw_response.kind_of? Net::HTTPSuccess
+		response['content'] = JSON.parse(raw_response.body)
+		response['success'] = true
+	end
 
-	return JSON.parse(response.body)
+	return response
 
 end
 
@@ -48,6 +57,7 @@ def download_cloud_file(file, path)
 end
 
 def install_forwarder(distrib, config)
+	config_complete = false
     #create config
     config_path = '/usr/bin/toplog/logstash-forwarder/config.json'
     FileUtils.mkdir_p(File.dirname(config_path))
@@ -99,64 +109,107 @@ def uninstall_forwarder(distrib)
 end
 
 def change_config
-	# get auth token
-	puts "Please enter your authentication token:"
-	token = gets.chomp
+	config_complete = false
+	is_multiple = false
+	token_valid = false
+	previous_config = Hash.new
 
-	#get user's log types
-	endpoint = "http://#{$toplog_server}/configurations?access_token=#{token}"
-	types = request_toplog(endpoint, 'get')
+	until config_complete
+		until token_valid
+			# get auth token
+			puts "Please enter your authentication token:"
+			token = gets.chomp
 
-	#prompt to select type
-	puts "You have created the following log types:"
-	types.each { |id, name| puts "#{id}: #{name}\n" }
-	type_selected = false
+			#get user's log types
+			endpoint = "http://#{$toplog_server}/configurations?access_token=#{token}"
+			response = request_toplog(endpoint, 'get')
+			if response['success']
+				token_valid = true
+				types = response['content']
+			else
+				puts "Error, authentication token not valid. Please re-enter or generate a new token"
+			end
+		end
 
-	until type_selected
-		puts "Please enter the corresponding id number of the log type you wish to forward"
-		user_type_id = gets.chomp
+		#prompt to select type
+		puts "You have created the following log types:"
+		types.each { |id, name| puts "#{id}: #{name}\n" }
+		type_selected = false
 
-		if user_type_id =~ /\A\d+\z/ and types.has_key?(user_type_id)
-			type_selected = true
-		else
-			puts "Error, log type not found"
+		until type_selected
+			puts "Please enter the corresponding id number of the log type you wish to forward"
+			user_type_id = gets.chomp
+
+			if user_type_id =~ /\A\d+\z/ and types.has_key?(user_type_id)
+				type_selected = true
+			else
+				puts "Error, log type not found"
+			end
+		end
+
+		path_selected = false
+		puts "Please enter full path to the log file you wish to forward (example: /path/to/my.log)"
+		#get log path
+		until path_selected
+			path = Readline.readline("> ", true).rstrip
+			if File.file?(path)
+				path_selected = true
+			else
+				puts "File not found, please try again"
+			end
+		end
+
+		puts "Please enter a name for your stream:"
+		stream_name = gets.chomp
+		stream_config = create_stream(token, path, user_type_id, stream_name)
+		if is_multiple
+			previous_config['files'].push(stream_config['files'][0])
+			puts JSON.pretty_generate(previous_config)
+			exit
+		end
+
+		confirm_valid = false
+
+		until confirm_valid
+			puts "Would you like to create another stream [yes/no]?"
+			confirm = gets.chomp
+			case confirm.downcase
+			when 'y', 'yes'
+				if !is_multiple #first run
+					previous_config = stream_config
+					is_multiple = true
+				end
+				confirm_valid = true
+			when 'n', 'no'
+				config_complete = true
+				confirm_valie = true
+			else
+				puts "Error, invalid response. Please only enter 'yes' or 'no'"
+			end
 		end
 	end
 
-	path_selected = false
-	puts "Please enter full path to the log file you wish to forward (example: /path/to/my.log)"
-	#get log path
-	until path_selected
-		path = Readline.readline("> ", true).rstrip
-		if File.exist?(path)
-			path_selected = true
-		else
-			puts "File not found, please try again"
-		end
-	end
+	return JSON.pretty_generate(stream_config)
+end
 
-	puts "Please enter a name for your stream:"
-	stream_name = gets.chomp
-
-	#create stream, get config json
-	endpoint = URI.escape("http://#{$toplog_server}/streams?access_token=#{token}&configuration_id=#{user_type_id}&name=#{stream_name}")
+def create_stream(token, path, user_type_id, stream_name)
+		#create stream, get config json
+	endpoint = "http://#{$toplog_server}/streams?access_token=#{token}&configuration_id=#{user_type_id}&name=#{stream_name}"
 	response = request_toplog(endpoint, 'post')
 
 	if response['success']
 		#replace path in config
-		response['config']['files'].each do |file|
+		response['content']['files'].each do |file|
 			file['paths'] = [path]
 			file['key'] = token
 		end
 
-		#install forwarder
-		return JSON.pretty_generate(response['config'])
+		return response['content']
 
 	else
-		puts "Could not create stream, please try again"
+		puts "Error: Could not create stream '#{stream_name}'. Please try again"
 		exit
 	end
-
 end
 
 def check_installed(required)
@@ -205,7 +258,4 @@ else
 	check_installed(false)
 	config = change_config
 	install_forwarder(distrib, config)
-
 end
-
-
