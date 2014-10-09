@@ -6,7 +6,7 @@ require 'net/http'
 require 'uri'
 require 'fileutils'
 
-$toplog_server = "toplog.demo"
+$toplog_server = "app.toplog.io"
 
 def request_toplog(endpoint, method)
 	response = Hash.new
@@ -93,16 +93,16 @@ def uninstall_forwarder(distrib)
 
 	case distrib
 	when 'debian'
-		`sudo rm /etc/default/toplog-forwarder`
+		#`sudo rm /etc/default/toplog-forwarder`
 		`sudo dpkg --remove logstash-forwarder`
 	when 'redhat'
-		`sudo rm /etc/sysconfig/toplog-forwarder`
+		#`sudo rm /etc/sysconfig/toplog-forwarder`
 		`sudo rpm -e logstash-forwarder-0.3.1-1.x86_64`
 	else
 		puts "Exception, unrecognized method in request_toplog"
 	end
 
-	`sudo rm /etc/init.d/toplog-forwarder`
+	#`sudo rm /etc/init.d/toplog-forwarder`
 	`sudo rm -rf /usr/bin/toplog/`
 	puts "Successfully uninstalled TopLog Logstash-Forwarder uploader"
 
@@ -182,7 +182,7 @@ def change_config
 				confirm_valid = true
 			when 'n', 'no'
 				config_complete = true
-				confirm_valie = true
+				confirm_valid = true
 			else
 				puts "Error, invalid response. Please only enter 'yes' or 'no'"
 			end
