@@ -122,7 +122,7 @@ def change_config
 			token = $stdin.gets.strip
 
 			#get user's log types
-			endpoint = "http://#{$toplog_server}/configurations?access_token=#{token}"
+			endpoint = "http://#{$toplog_server}/jobs?access_token=#{token}"
 			response = request_toplog(endpoint, 'get')
 			if response['success']
 				token_valid = true
