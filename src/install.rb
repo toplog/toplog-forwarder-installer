@@ -81,6 +81,7 @@ def install_forwarder(distrib, config)
 	`sudo cp -r /opt/logstash-forwarder /usr/bin/toplog/ `
 	`sudo rm -rf /opt/logstash-forwarder`
 	download_file('/toplog-forwarder.pub', '/usr/bin/toplog/logstash-forwarder/ssl/toplog-forwarder.pub')
+	`sudo chmod 640 /usr/bin/toplog/logstash-forwarder/ssl/toplog-forwarder.pub`
 	#set up forwarder as service
 	`sudo chmod 0755 /etc/init.d/logstash-forwarder`
 	FileUtils.mkdir_p('/var/log/toplog/')
@@ -214,10 +215,10 @@ end
 def check_installed(required)
 	installed = File.directory?('/usr/bin/toplog/logstash-forwarder')
 	if installed and !required
-		puts "It appears the TopLog Forwarder is already installed, please run 'sudo bash install.sh -h' for a list of command args"
+		puts "It appears the TopLog Forwarder is already installed, please run 'sudo ruby install.rb -h' for a list of command args"
 		exit
 	elsif !installed and required
-		puts "It appears the TopLog Forwarder is not installed, please run 'sudo bash install.sh -h' for a list of command args"
+		puts "It appears the TopLog Forwarder is not installed, please run 'sudo ruby install.rb -h' for a list of command args"
 		exit
 	end
 end
@@ -249,7 +250,7 @@ if !ARGV[0].nil?
 		puts "[-r] Reinstall TopLog Logstash-Forwarder"
 		puts "[-u] Uninstall TopLog Logstash-Forwarder"
 		puts "[-c] Change uploader configuration"
-		puts "[-h] or [--help] List install.sh command args"
+		puts "[-h] or [--help] List install.rb command args"
 		exit
 	when '--host'
 		if !ARGV[1].nil?
