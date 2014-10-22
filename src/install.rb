@@ -201,7 +201,7 @@ def create_stream(token, path, user_type_id, stream_name)
 		#replace path in config
 		response['content']['files'].each do |file|
 			file['paths'] = [path]
-			file['key'] = token
+			file['fields']['key'] = token
 		end
 
 		return response['content']
