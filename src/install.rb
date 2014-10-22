@@ -77,6 +77,7 @@ def install_forwarder(distrib, config)
 		download_file('/logstash_forwarder_redhat.sysconfig', '/etc/sysconfig/logstash-forwarder')
 	else
 		puts "Exception, unrecognized distribution #{distrib}"
+		exit
 	end
 	`sudo cp -r /opt/logstash-forwarder /usr/bin/toplog/ `
 	`sudo rm -rf /opt/logstash-forwarder`
