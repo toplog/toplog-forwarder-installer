@@ -166,6 +166,7 @@ def change_config
 		stream_config = create_stream(token, path, user_type_id, stream_name)
 		if is_multiple
 			previous_config['files'].push(stream_config['files'][0])
+			stream_config = previous_config
 		end
 
 		confirm_valid = false

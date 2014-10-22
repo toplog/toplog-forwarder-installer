@@ -58,7 +58,7 @@ def change_config():
 		type_selected = False
 		print "You have created the following log types:"
 		for (type_id, name) in types.items():
-			print "%(type_id)s: %(name)s\n" % vars()
+			print "%(type_id)s: %(name)s" % vars()
 
 		while not type_selected:
 			print "Please enter the corresponding id number of the log type you wish to forward"
@@ -85,6 +85,7 @@ def change_config():
 		stream_config = create_stream(token, path, user_type_id, stream_name)
 		if is_multiple:
 			previous_config['files'].append(stream_config['files'][0])
+			stream_config = previous_config
 
 		confirm_valid = False
 		while not confirm_valid:
