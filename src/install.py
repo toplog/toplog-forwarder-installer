@@ -18,7 +18,7 @@ def request_toplog(endpoint, method):
 	#endpoint = urllib.quote(endpoint)
 	headers = {"Accept": "application/json"}
 	connection = httplib.HTTPConnection(globals()["toplog_server"])
-	request = connection.request(method, endpoint, '', headers)
+	request = connection.request(method, endpoint, "", headers)
 	response = connection.getresponse()
 	if(response.status != 404):
 		body = response.read()
@@ -33,9 +33,9 @@ def download_file(cloud_file, path):
 	if not os.path.exists(os.path.dirname(path)):
 		os.makedirs(os.path.dirname(path))
 
-	file_name = url.split('/')[-1]
+	file_name = url.split("/")[-1]
 	u = urllib2.urlopen(url)
-	f = open(path, 'wb')
+	f = open(path, "wb")
 	meta = u.info()
 	file_size = int(meta.getheaders("Content-Length")[0])
 	print "Downloading: %s Bytes: %s" % (file_name, file_size)
@@ -61,24 +61,46 @@ def install_forwarder(distrib, config):
 	if not os.path.exists(os.path.dirname(config_path)):
 		os.makedirs(os.path.dirname(config_path))
 	#write config file
-	with open(config_path, 'w') as outfile:
+	with open(config_path, "w") as outfile:
  		json.dump(config, outfile, indent=4, sort_keys=True)
 
  	if distrib == "debian":
  		download_file("/logstash-forwarder_0.3.1_amd64.deb", "/opt/logstash-forwarder/logstash-forwarder_0.3.1_amd64.deb")
+ 		subprocess.call(["dpkg", "-i", "/opt/logstash-forwarder/logstash-forwarder_0.3.1_amd64.deb"])
+ 		download_file("/logstash_forwarder_debian.init", "/etc/init.d/logstash-forwarder")
+ 		download_file("/logstash_forwarder_debian.defaults", "/etc/default/logstash-forwarder")
+	elif distrib == "redhat":
+		download_file("/logstash-forwarder-0.3.1-1.x86_64.rpm", "/opt/logstash-forwarder/logstash-forwarder-0.3.1-1.x86_64.rpm")
+		subprocess.call(["rpm", "-i", "/opt/logstash-forwarder/logstash-forwarder-0.3.1-1.x86_64.rpm"])
+		download_file("/logstash_forwarder_redhat.init", "/etc/init.d/logstash-forwarder")
+		download_file("/logstash_forwarder_redhat.sysconfig", "/etc/sysconfig/logstash-forwarder")
+	else:
+		print "Exception, unrecognized distribution #{distrib}"
+		exit()
+
+	subprocess.call(["cp", "-r", "/opt/logstash-forwarder /usr/bin/toplog/"])
+	subprocess.call(["rm", "-rf", "/opt/logstash-forwarder"])
+	download_file("/toplog-forwarder.pub", "/usr/bin/toplog/logstash-forwarder/ssl/toplog-forwarder.pub")
+	subprocess.call(["chmod", "640", "/usr/bin/toplog/logstash-forwarder/ssl/toplog-forwarder.pub"])
+	#set up forwarder as service
+	subprocess.call(["chmod", "0755", "/etc/init.d/logstash-forwarder"])
+	FileUtils.mkdir_p("/var/log/toplog/")
+	subprocess.call(["touch", "/var/log/toplog/logstash-forwarder.log"])
+	subprocess.call("/etc/init.d/logstash-forwarder start")
+ 	print "Successfully installed TopLog's Logstash-Forwarder. Please check /var/log/toplog/logstash-forwarder.log to confirm"
 
 
 def create_stream(token, path, user_type_id, stream_name):
 	endpoint = "/streams?access_token=%(token)s&configuration_id=%(user_type_id)s&name=%(stream_name)s" % vars()
-	response = request_toplog(endpoint, 'POST')
+	response = request_toplog(endpoint, "POST")
 
 	if response:
-		for file_config in response['files']:
-			file_config['paths'] = [path]
-			file_config['fields']['key'] = token
+		for file_config in response["files"]:
+			file_config["paths"] = [path]
+			file_config["fields"]["key"] = token
 			return response
 	else:
-		print "Error: Could not create stream '%(stream_name)'. Please try again" % vars()
+		print "Error: Could not create stream %(stream_name)s. Please try again" % vars()
 		exit()
 
 
@@ -91,7 +113,7 @@ def change_config():
 			print "Please enter your authentication token:"
 			token = raw_input()
 			endpoint = "/logs?access_token=%(token)s" % vars()
-			types = request_toplog(endpoint, 'GET')
+			types = request_toplog(endpoint, "GET")
 			if types:
 				token_valid = True
 			else:
@@ -114,7 +136,7 @@ def change_config():
 		print "Please enter full path to the log file you wish to forward (example: /path/to/my.log)"
 
 		while not path_selected:
-			readline.set_completer_delims(' \t\n;')
+			readline.set_completer_delims(" \t\n;")
 			readline.parse_and_bind("tab: complete")
 			path = raw_input()
 			if os.path.isfile(path):
@@ -126,7 +148,7 @@ def change_config():
 		stream_name = raw_input()
 		stream_config = create_stream(token, path, user_type_id, stream_name)
 		if is_multiple:
-			previous_config['files'].append(stream_config['files'][0])
+			previous_config["files"].append(stream_config["files"][0])
 			stream_config = previous_config
 
 		confirm_valid = False
@@ -146,7 +168,8 @@ def change_config():
 
 	return stream_config
 
+#TODO check if running as root
 # pprint(subprocess.call("which dpkg >/dev/null 2>/dev/null"))
-distrib = "ubuntu" #TODO determine using subprocess
+distrib = "debian" #TODO determine using subprocess
 config = change_config()
 install_forwarder(distrib, config)

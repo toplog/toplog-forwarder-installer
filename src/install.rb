@@ -22,6 +22,7 @@ def request_toplog(endpoint, method)
 		request = Net::HTTP::Post.new(uri.to_s)
 	else
 		puts "Exception, unrecognized method in request_toplog"
+		exit
 	end
 	request['Accept'] = 'application/json'
 	raw_response = Net::HTTP.start(uri.host, uri.port) {|http|
@@ -58,7 +59,6 @@ end
 
 def install_forwarder(distrib, config)
 	puts "Installing Logstash-Forwarder . . ."
-	config_complete = false
     #create config
     config_path = '/usr/bin/toplog/logstash-forwarder/config.json'
     FileUtils.mkdir_p(File.dirname(config_path))
@@ -76,7 +76,7 @@ def install_forwarder(distrib, config)
 		download_file('/logstash_forwarder_redhat.init', '/etc/init.d/logstash-forwarder')
 		download_file('/logstash_forwarder_redhat.sysconfig', '/etc/sysconfig/logstash-forwarder')
 	else
-		puts "Exception, unrecognized method in request_toplog"
+		puts "Exception, unrecognized distribution #{distrib}"
 	end
 	`sudo cp -r /opt/logstash-forwarder /usr/bin/toplog/ `
 	`sudo rm -rf /opt/logstash-forwarder`
