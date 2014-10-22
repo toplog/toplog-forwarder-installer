@@ -1,11 +1,13 @@
  #!/usr/bin/env python
 import pprint #TODO:REMOVE THIS
 import urllib
+import urllib2
 import httplib
 import json
 import re
 import os.path
 import readline, glob
+import subprocess
 
 #TODO:REMOVE THIS
 global toplog_server
@@ -25,6 +27,46 @@ def request_toplog(endpoint, method):
 		data = False
 	connection.close()
 	return data
+
+def download_file(cloud_file, path):
+	url = "http://b3f2d1745ecfa432ffd7-9cf6ac512d93e71c4a6d3546d0b6c571.r97.cf2.rackcdn.com/%(cloud_file)s" % vars()
+	if not os.path.exists(os.path.dirname(path)):
+		os.makedirs(os.path.dirname(path))
+
+	file_name = url.split('/')[-1]
+	u = urllib2.urlopen(url)
+	f = open(path, 'wb')
+	meta = u.info()
+	file_size = int(meta.getheaders("Content-Length")[0])
+	print "Downloading: %s Bytes: %s" % (file_name, file_size)
+
+	file_size_dl = 0
+	block_sz = 8192
+	while True:
+	    buffer = u.read(block_sz)
+	    if not buffer:
+	        break
+
+	    file_size_dl += len(buffer)
+	    f.write(buffer)
+	    status = r"%10d  [%3.2f%%]" % (file_size_dl, file_size_dl * 100. / file_size)
+	    status = status + chr(8)*(len(status)+1)
+	    print status,
+
+	f.close()
+
+def install_forwarder(distrib, config):
+	print "Installing Logstash-Forwarder . . ."
+	config_path = "/usr/bin/toplog/logstash-forwarder/config.json"
+	if not os.path.exists(os.path.dirname(config_path)):
+		os.makedirs(os.path.dirname(config_path))
+	#write config file
+	with open(config_path, 'w') as outfile:
+ 		json.dump(config, outfile, indent=4, sort_keys=True)
+
+ 	if distrib == "debian":
+ 		download_file("/logstash-forwarder_0.3.1_amd64.deb", "/opt/logstash-forwarder/logstash-forwarder_0.3.1_amd64.deb")
+
 
 def create_stream(token, path, user_type_id, stream_name):
 	endpoint = "/streams?access_token=%(token)s&configuration_id=%(user_type_id)s&name=%(stream_name)s" % vars()
@@ -102,6 +144,9 @@ def change_config():
 			else:
 				print "Error, invalid response. Please only enter 'yes' or 'no'"
 
-		pprint.pprint(stream_config)
+	return stream_config
 
-change_config()
+# pprint(subprocess.call("which dpkg >/dev/null 2>/dev/null"))
+distrib = "ubuntu" #TODO determine using subprocess
+config = change_config()
+install_forwarder(distrib, config)
