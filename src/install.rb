@@ -225,6 +225,12 @@ def check_installed(required)
 	end
 end
 
+#check if installed as root
+if Process.euid != 0
+	print "You need root permissions to do run this script. Please enter 'sudo ruby install.rb'"
+	exit
+end
+
 puts "TopLog's Logstash-Forwarder install script, 'press cntrl-\\' to exit"
 
 #get package based on distrib

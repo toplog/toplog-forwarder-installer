@@ -1,5 +1,4 @@
  #!/usr/bin/env python
-import urllib #TODO: CHECK IF URLS ESCAPED WITHOUT
 import urllib2
 import httplib
 import json
@@ -9,13 +8,10 @@ import readline, glob
 import subprocess
 import sys
 
-#TODO:SET TO TOPLOG PRODUCTION
 global toplog_server
 toplog_server = "app.toplog.io"
 
-
 def request_toplog(endpoint, method):
-	#endpoint = urllib.quote(endpoint)
 	headers = {"Accept": "application/json"}
 	connection = httplib.HTTPConnection(globals()["toplog_server"])
 	request = connection.request(method, endpoint, "", headers)
@@ -119,8 +115,6 @@ def uninstall_forwarder(distrib):
 	subprocess.call(["rm", "-rf", "/usr/bin/toplog/"])
 	print "Successfully uninstalled TopLog Logstash-Forwarder uploader"
 
-
-
 def change_config():
 	config_complete = False
 	is_multiple = False
@@ -193,9 +187,21 @@ def check_installed(required):
 	elif not installed and required:
 		print "It appears the TopLog Forwarder is not installed, please run 'sudo ruby install.rb -h' for a list of command args"
 		exit()
-#TODO check if running as root
-# pprint(subprocess.call("which dpkg >/dev/null 2>/dev/null"))
-distrib = "debian" #TODO determine using subprocess
+
+#check permissions
+if not os.geteuid() == 0:
+	print "You need root permissions to do run this script. Please enter 'sudo python install.py'"
+	exit()
+
+#check distrib
+try:
+	FNULL = open(os.devnull, 'w')
+	subprocess.call(["which", "dpkg", ">/dev/null", "2>/dev/null"], stdout=FNULL, stderr=subprocess.STDOUT)
+except OSError as e:
+    if e.errno == os.errno.ENOENT:
+      distrib = "debian"
+    else:
+        distrib = "redhat"
 
 if len(sys.argv) > 1:
 	if sys.argv[1] == "-u":
