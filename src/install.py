@@ -234,10 +234,10 @@ def change_config():
 def check_installed(required):
 	installed = os.path.exists("/usr/bin/toplog/logstash-forwarder")
 	if installed and not required:
-		print "It appears the TopLog Forwarder is already installed, please run 'sudo ruby install.rb -h' for a list of command args"
+		print "It appears the TopLog Forwarder is already installed, please run 'sudo python install.py -h' for a list of command args"
 		exit()
 	elif not installed and required:
-		print "It appears the TopLog Forwarder is not installed, please run 'sudo ruby install.rb -h' for a list of command args"
+		print "It appears the TopLog Forwarder is not installed, please run 'sudo python install.py -h' for a list of command args"
 		exit()
 
 #check permissions
@@ -246,14 +246,16 @@ if not os.geteuid() == 0:
 	exit()
 
 #check distrib
-distrib = "debian"
-
 try:
 	FNULL = open(os.devnull, 'w')
-	subprocess.call(["which", "dpkg", ">/dev/null", "2>/dev/null"], stdout=FNULL, stderr=subprocess.STDOUT)
+	code = subprocess.call(["which", "dpkg", ">/dev/null", "2>/dev/null"], stdout=FNULL, stderr=subprocess.STDOUT)
 except OSError as e:
-    if e.errno == os.errno.ENOENT:
-        distrib = "redhat"
+    distrib = "redhat"
+
+if code != 1:
+	distrib = "redhat"
+else:
+	distrib = "debian"
 
 #command args
 if ("--host" in sys.argv):
@@ -288,7 +290,7 @@ if len(sys.argv) > 1:
 		print "[-u] Uninstall TopLog Logstash-Forwarder"
 		print "[-c] Change uploader configuration"
 		print "[-a] Add to existing stream"
-		print "[-h] or [--help] List install.rb command args"
+		print "[-h] or [--help] List install.py command args"
 	else:
 		print "Invalid argument %s\nPlease enter 'sudo python install.py -h' to see full list of possible command arguments" % sys.argv[1:]
 		exit()
