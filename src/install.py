@@ -115,20 +115,82 @@ def uninstall_forwarder(distrib):
 	subprocess.call(["rm", "-rf", "/usr/bin/toplog/"])
 	print "Successfully uninstalled TopLog Logstash-Forwarder uploader"
 
+def get_path():
+	path_selected = False
+	print "Please enter full path to the log file you wish to forward (example: /path/to/my.log)"
+
+	while not path_selected:
+		readline.set_completer_delims(" \t\n;")
+		readline.parse_and_bind("tab: complete")
+		path = raw_input()
+		if os.path.isfile(path):
+			path_selected = True
+		else:
+			print "File not found, please try again"
+
+	return path
+
+def get_stream_config(token, path, user_stream_id):
+	endpoint = "/streams/%(user_stream_id)s/generate_configuration?access_token=%(token)s" % vars()
+	response = request_toplog(endpoint, "GET")
+	if response:
+		for file_config in response["files"]:
+			file_config["paths"] = [path]
+			file_config["fields"]["key"] = token
+			return response
+	else:
+		print "Error: Could not get configuration for stream %(user_stream_id)s. Please try again" % vars()
+		exit()
+
+def add_to_stream():
+	is_multiple = False
+	token_valid = False
+
+	while not token_valid:
+		print "Please enter your authentication token:"
+		token = raw_input()
+		endpoint = "/streams?access_token=%(token)s" % vars()
+		streams = request_toplog(endpoint, "GET")
+		if streams:
+			token_valid = True
+		else:
+			print "Error, authentication token not valid. Please re-enter or generate a new token"
+
+	type_selected = False
+	print "You have created the following streams:"
+	for (type_id, name) in streams.items():
+		print "%(type_id)s: %(name)s" % vars()
+
+	while not type_selected:
+		print "Please enter the corresponding id number of the stream you wish to forward to"
+		user_stream_id = raw_input()
+		if(user_stream_id.isdigit() and user_stream_id in streams):
+			type_selected = True
+		else:
+			print "Error, stream not found"
+
+	path = get_path()
+	stream_config = get_stream_config(token, path, user_stream_id)
+
+	return stream_config
+
 def change_config():
 	config_complete = False
 	is_multiple = False
 	token_valid = False
 	while not config_complete:
+
 		while not token_valid:
-			print "Please enter your authentication token:"
-			token = raw_input()
-			endpoint = "/logs?access_token=%(token)s" % vars()
-			types = request_toplog(endpoint, "GET")
-			if types:
-				token_valid = True
-			else:
-				print "Error, authentication token not valid. Please re-enter or generate a new token"
+				print "Please enter your authentication token:"
+				token = raw_input()
+				endpoint = "/logs?access_token=%(token)s" % vars()
+				types = request_toplog(endpoint, "GET")
+				if types:
+					token_valid = True
+				else:
+					print "Error, authentication token not valid. Please re-enter or generate a new token"
+
+		return token
 
 		type_selected = False
 		print "You have created the following log types:"
@@ -143,17 +205,7 @@ def change_config():
 			else:
 				print "Error, log type not found"
 
-		path_selected = False
-		print "Please enter full path to the log file you wish to forward (example: /path/to/my.log)"
-
-		while not path_selected:
-			readline.set_completer_delims(" \t\n;")
-			readline.parse_and_bind("tab: complete")
-			path = raw_input()
-			if os.path.isfile(path):
-				path_selected = True
-			else:
-				print "File not found, please try again"
+		path = get_path()
 
 		print "Please enter a name for your stream:"
 		stream_name = raw_input()
@@ -194,14 +246,24 @@ if not os.geteuid() == 0:
 	exit()
 
 #check distrib
+distrib = "debian"
+
 try:
 	FNULL = open(os.devnull, 'w')
 	subprocess.call(["which", "dpkg", ">/dev/null", "2>/dev/null"], stdout=FNULL, stderr=subprocess.STDOUT)
 except OSError as e:
     if e.errno == os.errno.ENOENT:
-      distrib = "debian"
-    else:
         distrib = "redhat"
+
+#command args
+if ("--host" in sys.argv):
+	key = sys.argv.index("--host")
+	key += 1
+	if len(sys.argv[key]) > 1:
+		toplog_server = sys.argv[key]
+	else:
+		print "Invalid hostname"
+		exit()
 
 if len(sys.argv) > 1:
 	if sys.argv[1] == "-u":
@@ -217,20 +279,16 @@ if len(sys.argv) > 1:
 		change_config()
 		subprocess.call(["service", "logstash-forwarder", "restart"])
 		print "Successfully updated TopLog's Logstash-Forwarder config, please check /usr/bin/toplog/logs/logstash-forwarder.log to confirm"
+	elif sys.argv[1] == "-a":
+		check_installed(False)
+		config = add_to_stream()
+		install_forwarder(distrib, config)
 	elif (sys.argv[1] == "-h" or sys.argv[1:] == "--help"):
 		print "[-r] Reinstall TopLog Logstash-Forwarder"
 		print "[-u] Uninstall TopLog Logstash-Forwarder"
 		print "[-c] Change uploader configuration"
+		print "[-a] Add to existing stream"
 		print "[-h] or [--help] List install.rb command args"
-	elif (sys.argv[1] == "--host"):
-		if len(sys.argv[2]) > 1:
-			toplog_server = sys.argv[2]
-			check_installed(False)
-			config = change_config()
-			install_forwarder(distrib, config)
-		else:
-			print "Invalid hostname"
-			exit()
 	else:
 		print "Invalid argument %s\nPlease enter 'sudo python install.py -h' to see full list of possible command arguments" % sys.argv[1:]
 		exit()
