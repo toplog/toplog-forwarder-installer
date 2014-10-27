@@ -13,7 +13,7 @@ toplog_server = "app.toplog.io"
 
 def request_toplog(endpoint, method):
 	headers = {"Accept": "application/json"}
-	connection = httplib.HTTPSConnection(globals()["toplog_server"])
+	connection = httplib.HTTPConnection(globals()["toplog_server"])
 	request = connection.request(method, endpoint, "", headers)
 	response = connection.getresponse()
 	if(response.status == 200):
@@ -181,16 +181,15 @@ def change_config():
 	while not config_complete:
 
 		while not token_valid:
-				print "Please enter your authentication token:"
-				token = raw_input()
-				endpoint = "/logs?access_token=%(token)s" % vars()
-				types = request_toplog(endpoint, "GET")
-				if types:
-					token_valid = True
-				else:
-					print "Error, authentication token not valid. Please re-enter or generate a new token"
+			print "Please enter your authentication token:"
+			token = raw_input()
+			endpoint = "/logs?access_token=%(token)s" % vars()
+			types = request_toplog(endpoint, "GET")
+			if types:
+				token_valid = True
+			else:
+				print "Error, authentication token not valid. Please re-enter or generate a new token"
 
-		return token
 
 		type_selected = False
 		print "You have created the following log types:"
