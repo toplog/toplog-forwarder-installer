@@ -13,7 +13,7 @@ toplog_server = "app.toplog.io"
 
 def request_toplog(endpoint, method):
 	headers = {"Accept": "application/json"}
-	connection = httplib.HTTPConnection(globals()["toplog_server"])
+	connection = httplib.HTTPSConnection(globals()["toplog_server"])
 	request = connection.request(method, endpoint, "", headers)
 	response = connection.getresponse()
 	if(response.status == 200):
