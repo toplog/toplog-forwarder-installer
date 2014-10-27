@@ -13,7 +13,7 @@ toplog_server = "app.toplog.io"
 
 def request_toplog(endpoint, method):
 	headers = {"Accept": "application/json"}
-	connection = httplib.HTTPConnection(globals()["toplog_server"])
+	connection = httplib.HTTPSConnection(globals()["toplog_server"])
 	request = connection.request(method, endpoint, "", headers)
 	response = connection.getresponse()
 	if(response.status == 200):
@@ -258,39 +258,42 @@ else:
 	distrib = "debian"
 
 #command args
-if ("--host" in sys.argv):
-	key = sys.argv.index("--host")
-	key += 1
-	if len(sys.argv[key]) > 1:
-		toplog_server = sys.argv[key]
-	else:
-		print "Invalid hostname"
-		exit()
-
 if len(sys.argv) > 1:
-	if sys.argv[1] == "-u":
+
+	if "-u" in sys.argv:
 		check_installed(True)
 		uninstall_forwarder(distrib)
-	elif sys.argv[1] == "-r":
+	elif "-r" in sys.argv:
 		check_installed(True)
 		uninstall_forwarder(distrib)
 		config = change_config()
 		install_forwarder(distrib, config)
-	elif sys.argv[1] == "-c":
+	elif "-c" in sys.argv:
 		check_installed(True)
 		change_config()
 		subprocess.call(["service", "logstash-forwarder", "restart"])
 		print "Successfully updated TopLog's Logstash-Forwarder config, please check /usr/bin/toplog/logs/logstash-forwarder.log to confirm"
-	elif sys.argv[1] == "-a":
+	elif "-a" in sys.argv:
 		check_installed(False)
 		config = add_to_stream()
 		install_forwarder(distrib, config)
-	elif (sys.argv[1] == "-h" or sys.argv[1:] == "--help"):
+	elif ("-h" in sys.argv or "--help"in sys.argv):
 		print "[-r] Reinstall TopLog Logstash-Forwarder"
 		print "[-u] Uninstall TopLog Logstash-Forwarder"
 		print "[-c] Change uploader configuration"
 		print "[-a] Add to existing stream"
 		print "[-h] or [--help] List install.py command args"
+	elif ("--host" in sys.argv):
+		key = sys.argv.index("--host")
+		key += 1
+		if len(sys.argv[key]) > 1:
+			toplog_server = sys.argv[key]
+			check_installed(False)
+			config = change_config()
+			install_forwarder(distrib, config)
+		else:
+			print "Invalid hostname"
+			exit()
 	else:
 		print "Invalid argument %s\nPlease enter 'sudo python install.py -h' to see full list of possible command arguments" % sys.argv[1:]
 		exit()
