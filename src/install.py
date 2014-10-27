@@ -239,6 +239,10 @@ def check_installed(required):
 	elif not installed and required:
 		print "It appears the TopLog Forwarder is not installed, please run 'sudo python install.py -h' for a list of command args"
 		exit()
+def default_install(distrib):
+	check_installed(False)
+	config = change_config()
+	install_forwarder(distrib, config)
 
 #check permissions
 if not os.geteuid() == 0:
@@ -258,7 +262,18 @@ else:
 	distrib = "debian"
 
 #command args
+change_host = False
 if len(sys.argv) > 1:
+	if ("--host" in sys.argv):
+		key = sys.argv.index("--host")
+		host_key = key + 1
+		if len(sys.argv[host_key]) > 1:
+			toplog_server = sys.argv[host_key]
+			print "Host server set to %(toplog_server)s" % vars()
+			change_host = True
+		else:
+			print "Invalid hostname"
+			exit()
 
 	if "-u" in sys.argv:
 		check_installed(True)
@@ -283,21 +298,10 @@ if len(sys.argv) > 1:
 		print "[-c] Change uploader configuration"
 		print "[-a] Add to existing stream"
 		print "[-h] or [--help] List install.py command args"
-	elif ("--host" in sys.argv):
-		key = sys.argv.index("--host")
-		key += 1
-		if len(sys.argv[key]) > 1:
-			toplog_server = sys.argv[key]
-			check_installed(False)
-			config = change_config()
-			install_forwarder(distrib, config)
-		else:
-			print "Invalid hostname"
-			exit()
+	elif change_host:
+		default_install(distrib)
 	else:
 		print "Invalid argument %s\nPlease enter 'sudo python install.py -h' to see full list of possible command arguments" % sys.argv[1:]
 		exit()
 else:
-	check_installed(False)
-	config = change_config()
-	install_forwarder(distrib, config)
+	default_install(distrib)
