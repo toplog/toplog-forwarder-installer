@@ -1,3 +1,4 @@
+[![Stories in Ready](https://badge.waffle.io/toplog/toplog-forwarder-installer.png?label=ready&title=Ready)](https://waffle.io/toplog/toplog-forwarder-installer)
 toplog-forwarder-installer
 ==========================
 
