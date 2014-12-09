@@ -7,13 +7,14 @@ import os.path
 import readline, glob
 import subprocess
 import sys
+import pprint #TODO: REMOVE THIS
 
 global toplog_server
 toplog_server = "app.toplog.io"
 
 def request_toplog(endpoint, method):
     headers = {"Accept": "application/json"}
-    connection = httplib.HTTPSConnection(globals()["toplog_server"])
+    connection = httplib.HTTPConnection(globals()["toplog_server"])
     request = connection.request(method, endpoint, "", headers)
     response = connection.getresponse()
     if(response.status == 200):
@@ -146,6 +147,7 @@ def get_stream_config(token, path, user_stream_id):
 def add_to_stream():
     is_multiple = False
     token_valid = False
+    add_complete = False
 
     while not token_valid:
         print "Please enter your authentication token:"
@@ -172,6 +174,23 @@ def add_to_stream():
 
     path = get_path()
     stream_config = get_stream_config(token, path, user_stream_id)
+    while not add_complete:
+        if is_multiple:
+            path = get_path()
+            stream_config["files"][0]["paths"].append(path)
+        confirm_valid = False
+        while not confirm_valid:
+            print "Would you like to add another file to your stream [yes/no]?"
+            confirm = raw_input()
+            if (confirm.lower() == "y" or confirm.lower() == "yes"):
+                if not is_multiple:
+                    is_multiple = True
+                confirm_valid = True
+            elif (confirm.lower() == "n" or confirm.lower() == "no"):
+                add_complete = True
+                confirm_valid = True
+            else:
+                print "Error, invalid response. Please only enter 'yes' or 'no'"
 
     return stream_config
 
