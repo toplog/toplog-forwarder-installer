@@ -62,24 +62,24 @@ def install_forwarder(distrib, config):
         json.dump(config, outfile, indent=4, sort_keys=True)
 
     if distrib == "debian":
-        download_file("/logstash-forwarder_0.3.1_amd64.deb", "/opt/logstash-forwarder/logstash-forwarder_0.3.1_amd64.deb")
+        download_file("logstash-forwarder_0.3.1_amd64.deb", "/opt/logstash-forwarder/logstash-forwarder_0.3.1_amd64.deb")
         print "Installing Logstash-Forwarder . . ."
         subprocess.call(["dpkg", "-i", "/opt/logstash-forwarder/logstash-forwarder_0.3.1_amd64.deb"])
-        download_file("/logstash_forwarder_debian.init", "/etc/init.d/logstash-forwarder")
-        download_file("/logstash_forwarder_debian.defaults", "/etc/default/logstash-forwarder")
+        download_file("logstash_forwarder_debian.init", "/etc/init.d/logstash-forwarder")
+        download_file("logstash_forwarder_debian.defaults", "/etc/default/logstash-forwarder")
     elif distrib == "redhat":
-        download_file("/logstash-forwarder-0.3.1-1.x86_64.rpm", "/opt/logstash-forwarder/logstash-forwarder-0.3.1-1.x86_64.rpm")
+        download_file("logstash-forwarder-0.3.1-1.x86_64.rpm", "/opt/logstash-forwarder/logstash-forwarder-0.3.1-1.x86_64.rpm")
         print "Installing Logstash-Forwarder . . ."
         subprocess.call(["rpm", "-i", "/opt/logstash-forwarder/logstash-forwarder-0.3.1-1.x86_64.rpm"])
-        download_file("/logstash_forwarder_redhat.init", "/etc/init.d/logstash-forwarder")
-        download_file("/logstash_forwarder_redhat.sysconfig", "/etc/sysconfig/logstash-forwarder")
+        download_file("logstash_forwarder_redhat.init", "/etc/init.d/logstash-forwarder")
+        download_file("logstash_forwarder_redhat.sysconfig", "/etc/sysconfig/logstash-forwarder")
     else:
         print "Exception, unrecognized distribution %(distrib)s" % vars()
         exit()
 
     subprocess.call(["cp", "-r", "/opt/logstash-forwarder", "/usr/bin/toplog/"])
     subprocess.call(["rm", "-rf", "/opt/logstash-forwarder"])
-    download_file("/toplog-forwarder.pub", "/usr/bin/toplog/logstash-forwarder/ssl/toplog-forwarder.pub")
+    download_file("toplog-forwarder.pub", "/usr/bin/toplog/logstash-forwarder/ssl/toplog-forwarder.pub")
     subprocess.call(["chmod", "640", "/usr/bin/toplog/logstash-forwarder/ssl/toplog-forwarder.pub"])
     #set up forwarder as service
     subprocess.call(["chmod", "0755", "/etc/init.d/logstash-forwarder"])
