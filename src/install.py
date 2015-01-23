@@ -247,20 +247,34 @@ def create_stream():
             else:
                 print "Error, invalid response. Please only enter 'yes' or 'no'"
 
+        print "Stream %(stream_name)s created." % vars()
     # return stream_config
 
 def check_installed(required):
-    installed = os.path.exists("/usr/bin/toplog/logstash-forwarder")
+    installed = os.path.exists("/usr/bin/toplog/logstash-forwarder/bin/")
     if installed and not required:
-        print "It appears the TopLog Forwarder is already installed, please run 'sudo python install.py -h' for a list of command args"
-        exit()
+        print "It appears the TopLog Forwarder is already installed. Will change current installation's configuration."
     elif not installed and required:
         print "It appears the TopLog Forwarder is not installed, please run 'sudo python install.py -h' for a list of command args"
         exit()
+    elif not installed and not required:
+        print "It appears the TopLog Forwarder is not installed. Will install after completing configuration"
+
+    return installed
+
+def restart_service(task):
+    print "Restarting logstash-forwarder service . . ."
+    subprocess.call(["service", "logstash-forwarder", "restart"])
+    print "Successfully %(task)s, please check /usr/bin/toplog/logs/logstash-forwarder.log to confirm" % vars()
+
 def default_install(distrib):
-    check_installed(False)
+    installed = check_installed(False)
     create_stream()
-    install_forwarder(distrib)
+    if not installed:
+        install_forwarder(distrib)
+    else:
+        restart_service("created stream(s)")
+
 
 #check permissions
 if not os.geteuid() == 0:
@@ -304,8 +318,7 @@ if len(sys.argv) > 1:
     elif "-c" in sys.argv:
         check_installed(True)
         create_stream()
-        subprocess.call(["service", "logstash-forwarder", "restart"])
-        print "Successfully updated TopLog's Logstash-Forwarder config, please check /usr/bin/toplog/logs/logstash-forwarder.log to confirm"
+        restart_service("changed stream(s))")
     elif "-a" in sys.argv:
         check_installed(False)
         config = add_to_stream()
