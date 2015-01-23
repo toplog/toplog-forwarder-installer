@@ -128,6 +128,21 @@ def get_path():
 
     return path
 
+def confirm_prompt(message):
+    confirm_valid = False
+    while not confirm_valid:
+        print message + " [yes/no]"
+        confirm = raw_input()
+        if (confirm.lower() == "y" or confirm.lower() == "yes"):
+            confirm = True
+            confirm_valid = True
+        elif (confirm.lower() == "n" or confirm.lower() == "no"):
+            confirm = False
+            confirm_valid = True
+        else:
+            print "Error, invalid response. Please only enter 'yes' or 'no'"
+    return confirm
+
 def get_stream_config(token, path, user_stream_id):
     endpoint = "/streams/%(user_stream_id)s/generate_configuration?access_token=%(token)s" % vars()
     response = request_toplog(endpoint, "GET")
@@ -140,7 +155,7 @@ def get_stream_config(token, path, user_stream_id):
         print "Error: Could not get configuration for stream %(user_stream_id)s. Please try again" % vars()
         exit()
 
-def add_file_to_stream(stream_config):
+def add_file_to_stream_config(stream_config):
     is_multiple = False
     add_complete = False
 
@@ -164,10 +179,8 @@ def add_file_to_stream(stream_config):
 
     return stream_config
 
-def add_to_stream():
-    # is_multiple = False
+def add_file_to_stream():
     token_valid = False
-    # add_complete = False
 
     while not token_valid:
         print "Please enter your authentication token:"
@@ -188,33 +201,20 @@ def add_to_stream():
         print "Please enter the corresponding id number of the stream you wish to forward to"
         user_stream_id = raw_input()
         if(user_stream_id.isdigit() and user_stream_id in streams):
-            type_selected = True
+            config_path = "/usr/bin/toplog/logstash-forwarder/conf.d/%(user_stream_id)s.json" % vars()
+            if not os.path.exists(os.path.dirname(config_path)):
+                type_selected = True
+            else:
+                overwrite = confirm_prompt("Warning: files currently being forwarded for this stream.\nThis will overwrite the previous configuration. Would you like to continue?")
+                if overwrite:
+                    type_selected = True
         else:
             print "Error, stream not found"
 
     path = get_path()
     config = get_stream_config(token, path, user_stream_id)
-    stream_config = add_file_to_stream(config)
+    stream_config = add_file_to_stream_config(config)
     create_config(config)
-    # while not add_complete:
-    #     if is_multiple:
-    #         path = get_path()
-    #         stream_config["files"][0]["paths"].append(path)
-    #     confirm_valid = False
-    #     while not confirm_valid:
-    #         print "Would you like to add another file to your stream [yes/no]?"
-    #         confirm = raw_input()
-    #         if (confirm.lower() == "y" or confirm.lower() == "yes"):
-    #             if not is_multiple:
-    #                 is_multiple = True
-    #             confirm_valid = True
-    #         elif (confirm.lower() == "n" or confirm.lower() == "no"):
-    #             add_complete = True
-    #             confirm_valid = True
-    #         else:
-    #             print "Error, invalid response. Please only enter 'yes' or 'no'"
-
-    # return stream_config
 
 def create_config(config):
     stream_id = config['files'][0]['fields']['stream_id']
@@ -260,21 +260,10 @@ def create_stream():
         print "Please enter a name for your stream:"
         stream_name = raw_input()
         config = store_stream(token, path, user_type_id, stream_name)
-        stream_config = add_file_to_stream(config)
+        stream_config = add_file_to_stream_config(config)
         create_config(stream_config)
 
-        confirm_valid = False
-        while not confirm_valid:
-            print "Would you like to create another stream [yes/no]?"
-            confirm = raw_input()
-            if (confirm.lower() == "y" or confirm.lower() == "yes"):
-                is_multiple = True
-                confirm_valid = True
-            elif (confirm.lower() == "n" or confirm.lower() == "no"):
-                config_complete = True
-                confirm_valid = True
-            else:
-                print "Error, invalid response. Please only enter 'yes' or 'no'"
+        config_complete = not confirm_prompt("Would you like to create another stream [yes/no]?")
 
         print "Stream %(stream_name)s created." % vars()
     # return stream_config
@@ -306,7 +295,7 @@ def default_install(distrib):
 
 def add_stream():
     installed = check_installed(False)
-    add_to_stream()
+    add_file_to_stream()
     if not installed:
         install_forwarder(distrib)
     else:
