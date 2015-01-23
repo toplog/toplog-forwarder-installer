@@ -25,7 +25,7 @@ def request_toplog(endpoint, method):
     connection.close()
     return data
 
-def download_file(cloud_file, path, server = "http://b3f2d1745ecfa432ffd7-9cf6ac512d93e71c4a6d3546d0b6c571.r97.cf2.rackcdn.com"):
+def download_file(cloud_file, path, server = "http://files.toplog.io"):
     url = "%(server)s/%(cloud_file)s" % vars()
     if not os.path.exists(os.path.dirname(path)):
         os.makedirs(os.path.dirname(path))
