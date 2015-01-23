@@ -52,14 +52,8 @@ def download_file(cloud_file, path, server = "http://b3f2d1745ecfa432ffd7-9cf6ac
 
     f.close()
 
-def install_forwarder(distrib, config):
-    config_path = "/usr/bin/toplog/logstash-forwarder/config.json"
+def install_forwarder(distrib):
     install_directory = "/var/log/toplog/"
-    if not os.path.exists(os.path.dirname(config_path)):
-        os.makedirs(os.path.dirname(config_path))
-    #write config file
-    with open(config_path, "w") as outfile:
-        json.dump(config, outfile, indent=4, sort_keys=True)
 
     if distrib == "debian":
         download_file("logstash-forwarder_0.3.1_amd64.deb", "/opt/logstash-forwarder/logstash-forwarder_0.3.1_amd64.deb")
@@ -90,7 +84,7 @@ def install_forwarder(distrib, config):
     print "Successfully installed TopLog's Logstash-Forwarder. Please check /var/log/toplog/logstash-forwarder.log to confirm"
 
 
-def create_stream(token, path, user_type_id, stream_name):
+def store_stream(token, path, user_type_id, stream_name):
     escaped_stream_name = urllib2.quote(stream_name)
     endpoint = "/streams?access_token=%(token)s&configuration_id=%(user_type_id)s&name=%(escaped_stream_name)s" % vars()
     response = request_toplog(endpoint, "POST")
@@ -194,7 +188,16 @@ def add_to_stream():
 
     return stream_config
 
-def change_config():
+def create_config(config):
+    stream_id = config['files'][0]['fields']['stream_id']
+    config_path = "/usr/bin/toplog/logstash-forwarder/conf.d/%(stream_id)s.json" % vars()
+    if not os.path.exists(os.path.dirname(config_path)):
+        os.makedirs(os.path.dirname(config_path))
+    #write config file
+    with open(config_path, "w") as outfile:
+        json.dump(config, outfile, indent=4, sort_keys=True)
+
+def create_stream():
     config_complete = False
     is_multiple = False
     token_valid = False
@@ -228,19 +231,15 @@ def change_config():
 
         print "Please enter a name for your stream:"
         stream_name = raw_input()
-        stream_config = create_stream(token, path, user_type_id, stream_name)
-        if is_multiple:
-            previous_config["files"].append(stream_config["files"][0])
-            stream_config = previous_config
+        stream_config = store_stream(token, path, user_type_id, stream_name)
+        create_config(stream_config)
 
         confirm_valid = False
         while not confirm_valid:
             print "Would you like to create another stream [yes/no]?"
             confirm = raw_input()
             if (confirm.lower() == "y" or confirm.lower() == "yes"):
-                if not is_multiple:
-                    previous_config = stream_config
-                    is_multiple = True
+                is_multiple = True
                 confirm_valid = True
             elif (confirm.lower() == "n" or confirm.lower() == "no"):
                 config_complete = True
@@ -248,7 +247,7 @@ def change_config():
             else:
                 print "Error, invalid response. Please only enter 'yes' or 'no'"
 
-    return stream_config
+    # return stream_config
 
 def check_installed(required):
     installed = os.path.exists("/usr/bin/toplog/logstash-forwarder")
@@ -260,8 +259,8 @@ def check_installed(required):
         exit()
 def default_install(distrib):
     check_installed(False)
-    config = change_config()
-    install_forwarder(distrib, config)
+    create_stream()
+    install_forwarder(distrib)
 
 #check permissions
 if not os.geteuid() == 0:
@@ -300,17 +299,17 @@ if len(sys.argv) > 1:
     elif "-r" in sys.argv:
         check_installed(True)
         uninstall_forwarder(distrib)
-        config = change_config()
-        install_forwarder(distrib, config)
+        create_stream()
+        install_forwarder(distrib)
     elif "-c" in sys.argv:
         check_installed(True)
-        change_config()
+        create_stream()
         subprocess.call(["service", "logstash-forwarder", "restart"])
         print "Successfully updated TopLog's Logstash-Forwarder config, please check /usr/bin/toplog/logs/logstash-forwarder.log to confirm"
     elif "-a" in sys.argv:
         check_installed(False)
         config = add_to_stream()
-        install_forwarder(distrib, config)
+        install_forwarder(distrib)
     elif ("-h" in sys.argv or "--help"in sys.argv):
         print "[-r] Reinstall TopLog Logstash-Forwarder"
         print "[-u] Uninstall TopLog Logstash-Forwarder"
