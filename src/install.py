@@ -10,7 +10,9 @@ import sys
 import pprint #TODO: REMOVE THIS
 
 global toplog_server
+global version
 toplog_server = "app.toplog.io"
+version = '1.1.0'
 
 def request_toplog(endpoint, method):
     headers = {"Accept": "application/json"}
@@ -138,10 +140,34 @@ def get_stream_config(token, path, user_stream_id):
         print "Error: Could not get configuration for stream %(user_stream_id)s. Please try again" % vars()
         exit()
 
-def add_to_stream():
+def add_file_to_stream(stream_config):
     is_multiple = False
-    token_valid = False
     add_complete = False
+
+    while not add_complete:
+        if is_multiple:
+            path = get_path()
+            stream_config["files"][0]["paths"].append(path)
+        confirm_valid = False
+        while not confirm_valid:
+            print "Would you like to add another file to your stream [yes/no]?"
+            confirm = raw_input()
+            if (confirm.lower() == "y" or confirm.lower() == "yes"):
+                if not is_multiple:
+                    is_multiple = True
+                confirm_valid = True
+            elif (confirm.lower() == "n" or confirm.lower() == "no"):
+                add_complete = True
+                confirm_valid = True
+            else:
+                print "Error, invalid response. Please only enter 'yes' or 'no'"
+
+    return stream_config
+
+def add_to_stream():
+    # is_multiple = False
+    token_valid = False
+    # add_complete = False
 
     while not token_valid:
         print "Please enter your authentication token:"
@@ -167,26 +193,28 @@ def add_to_stream():
             print "Error, stream not found"
 
     path = get_path()
-    stream_config = get_stream_config(token, path, user_stream_id)
-    while not add_complete:
-        if is_multiple:
-            path = get_path()
-            stream_config["files"][0]["paths"].append(path)
-        confirm_valid = False
-        while not confirm_valid:
-            print "Would you like to add another file to your stream [yes/no]?"
-            confirm = raw_input()
-            if (confirm.lower() == "y" or confirm.lower() == "yes"):
-                if not is_multiple:
-                    is_multiple = True
-                confirm_valid = True
-            elif (confirm.lower() == "n" or confirm.lower() == "no"):
-                add_complete = True
-                confirm_valid = True
-            else:
-                print "Error, invalid response. Please only enter 'yes' or 'no'"
+    config = get_stream_config(token, path, user_stream_id)
+    stream_config = add_file_to_stream(config)
+    create_config(config)
+    # while not add_complete:
+    #     if is_multiple:
+    #         path = get_path()
+    #         stream_config["files"][0]["paths"].append(path)
+    #     confirm_valid = False
+    #     while not confirm_valid:
+    #         print "Would you like to add another file to your stream [yes/no]?"
+    #         confirm = raw_input()
+    #         if (confirm.lower() == "y" or confirm.lower() == "yes"):
+    #             if not is_multiple:
+    #                 is_multiple = True
+    #             confirm_valid = True
+    #         elif (confirm.lower() == "n" or confirm.lower() == "no"):
+    #             add_complete = True
+    #             confirm_valid = True
+    #         else:
+    #             print "Error, invalid response. Please only enter 'yes' or 'no'"
 
-    return stream_config
+    # return stream_config
 
 def create_config(config):
     stream_id = config['files'][0]['fields']['stream_id']
@@ -231,7 +259,8 @@ def create_stream():
 
         print "Please enter a name for your stream:"
         stream_name = raw_input()
-        stream_config = store_stream(token, path, user_type_id, stream_name)
+        config = store_stream(token, path, user_type_id, stream_name)
+        stream_config = add_file_to_stream(config)
         create_config(stream_config)
 
         confirm_valid = False
@@ -253,7 +282,7 @@ def create_stream():
 def check_installed(required):
     installed = os.path.exists("/usr/bin/toplog/logstash-forwarder/bin/")
     if installed and not required:
-        print "It appears the TopLog Forwarder is already installed. Will change current installation's configuration."
+        print "It appears the TopLog Forwarder is already installed. Any changes will be applied to current installation."
     elif not installed and required:
         print "It appears the TopLog Forwarder is not installed, please run 'sudo python install.py -h' for a list of command args"
         exit()
@@ -275,6 +304,13 @@ def default_install(distrib):
     else:
         restart_service("created stream(s)")
 
+def add_stream():
+    installed = check_installed(False)
+    add_to_stream()
+    if not installed:
+        install_forwarder(distrib)
+    else:
+        restart_service("added stream(s)")
 
 #check permissions
 if not os.geteuid() == 0:
@@ -320,9 +356,7 @@ if len(sys.argv) > 1:
         create_stream()
         restart_service("changed stream(s))")
     elif "-a" in sys.argv:
-        check_installed(False)
-        config = add_to_stream()
-        install_forwarder(distrib)
+        add_stream()
     elif ("-h" in sys.argv or "--help"in sys.argv):
         print "[-r] Reinstall TopLog Logstash-Forwarder"
         print "[-u] Uninstall TopLog Logstash-Forwarder"
