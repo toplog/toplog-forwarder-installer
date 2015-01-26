@@ -171,14 +171,14 @@ def get_local_streams(streams = None):
 
     return local_streams
 
-def select_stream(streams):
+def select_stream(streams, task = "select"):
     stream_selected = False
     while not stream_selected:
-        print "Please enter the corresponding id number of the stream you wish to select:"
+        print "Please enter the corresponding id number of the stream you wish to %(task)s forwarding:" % vars()
         user_stream_id = raw_input()
         if(user_stream_id.isdigit() and user_stream_id in streams):
             config_path = "/usr/bin/toplog/logstash-forwarder/conf.d/%(user_stream_id)s.json" % vars()
-            if not os.path.exists(os.path.dirname(config_path)):
+            if not os.path.exists(config_path):
                 stream_selected = True
             else:
                 overwrite = confirm_prompt("Warning: files on this machine are currently being forwarded for this stream.\nThis will destroy the previous configuration. Would you like to continue?")
@@ -194,16 +194,20 @@ def disable_stream():
     token, streams = get_data("streams")
     while not disable_complete:
         local_streams = get_local_streams(streams)
-        list_streams(local_streams, "The following streams are currently being forwarded from this machine:")
-        print "Which stream would you like to disable? (This will not disable any other forwarders for this stream.)"
-        stream_id = select_stream(local_streams)
-        config = "/usr/bin/toplog/logstash-forwarder/conf.d/%(stream_id)s.json" % vars()
-        os.remove(config)
-        print "Stream disabled"
-        disable_complete = not confirm_prompt("Would you like to disable another stream?")
+        if local_streams:
+            list_streams(local_streams, "The following streams are currently being forwarded from this machine:")
+            print "Which stream would you like to disable? (This will not disable any other forwarders for this stream.)"
+            stream_id = select_stream(local_streams, "disable")
+            name = local_streams[stream_id]
+            config = "/usr/bin/toplog/logstash-forwarder/conf.d/%(stream_id)s.json" % vars()
+            os.remove(config)
+            print "Stream %(name)s disabled" % vars()
+            disable_complete = not confirm_prompt("Would you like to disable another stream?")
+        else:
+            print "No streams currently being forwarded. Please enter 'sudo python install.py -h' to see full list of possible command arguments."
+            exit()
 
-    restart_service("disabled stream(s)")
-
+    return (token, streams)
 
 def get_stream_config(token, path, user_stream_id):
     endpoint = "/streams/%(user_stream_id)s/generate_configuration?access_token=%(token)s" % vars()
@@ -241,30 +245,21 @@ def add_file_to_stream_config(stream_config):
 
     return stream_config
 
-def add_file_to_stream():
-    token, streams = get_data("streams")
+def add_file_to_stream(token = None, streams = None):
+    add_complete = False
+    if not token and not streams:
+        token, streams = get_data("streams")
 
-    type_selected = False
-    list_streams(streams, "You have created the following streams:")
+    while not add_complete:
+        type_selected = False
+        list_streams(streams, "You have created the following streams:")
+        user_stream_id = select_stream(streams, "add")
+        path = get_path()
+        config = get_stream_config(token, path, user_stream_id)
+        stream_config = add_file_to_stream_config(config)
+        create_config(config)
+        add_complete = not confirm_prompt("Would you like to add to another stream?")
 
-    while not type_selected:
-        print "Please enter the corresponding id number of the stream you wish to forward to"
-        user_stream_id = raw_input()
-        if(user_stream_id.isdigit() and user_stream_id in streams):
-            config_path = "/usr/bin/toplog/logstash-forwarder/conf.d/%(user_stream_id)s.json" % vars()
-            if not os.path.exists(os.path.dirname(config_path)):
-                type_selected = True
-            else:
-                overwrite = confirm_prompt("Warning: files on this machine are currently being forwarded for this stream.\nThis will overwrite the previous configuration. Would you like to continue?")
-                if overwrite:
-                    type_selected = True
-        else:
-            print "Error, stream not found"
-
-    path = get_path()
-    config = get_stream_config(token, path, user_stream_id)
-    stream_config = add_file_to_stream_config(config)
-    create_config(config)
 
 def create_config(config):
     stream_id = config['files'][0]['fields']['stream_id']
@@ -381,18 +376,22 @@ if len(sys.argv) > 1:
         install_forwarder(distrib)
     elif "-c" in sys.argv:
         check_installed(True)
-        create_stream()
-        restart_service("changed stream(s))")
+        token, streams = disable_stream()
+        add_file_to_stream(token, streams)
+        restart_service("changed streams")
     elif "-a" in sys.argv:
         add_stream()
     elif "-l" in sys.argv:
         token, streams = get_data("streams")
         list_streams(streams, "The following streams are currently being forwarded from this machine:")
     elif "-d" in sys.argv:
+        check_installed(True)
         disable_stream()
+        restart_service("disabled stream(s)")
     elif ("-h" in sys.argv or "--help"in sys.argv):
-        print "[-r] Reinstall TopLog Logstash-Forwarder"
-        print "[-u] Uninstall TopLog Logstash-Forwarder"
+        print "Default usage: Create topLog stream & install Logstash-Forwarder"
+        print "[-r] Reinstall Logstash-Forwarder"
+        print "[-u] Uninstall Logstash-Forwarder"
         print "[-c] Change a stream currently being forwarded by this machine"
         print "[-a] Add file to an existing stream"
         print "[-l] List streams currently being forwarded by this machine"
@@ -401,7 +400,7 @@ if len(sys.argv) > 1:
     elif change_host:
         default_install(distrib)
     else:
-        print "Invalid argument %s\nPlease enter 'sudo python install.py -h' to see full list of possible command arguments" % sys.argv[1:]
+        print "Invalid argument %s\nPlease enter 'sudo python install.py -h' to see full list of possible command arguments." % sys.argv[1:]
         exit()
 else:
     default_install(distrib)
