@@ -12,7 +12,7 @@ import pprint #TODO: REMOVE THIS
 global toplog_server
 global version
 toplog_server = "app.toplog.io"
-version = '1.1.0'
+version = "1.1.0"
 
 def request_toplog(endpoint, method):
     headers = {"Accept": "application/json"}
@@ -156,10 +156,20 @@ def confirm_prompt(message):
             print "Error, invalid response. Please only enter 'yes' or 'no'"
     return confirm
 
-def list_streams(streams, message):
+def create_stream_keys(streams):
+    stream_keys = {}
+    counter = 0
+    for (stream_id, name) in streams.items():
+        counter += 1
+        stream_keys[counter] = stream_id
+
+    return stream_keys
+
+def list_streams(streams, stream_keys, message):
     print message
-    for (type_id, name) in streams.items():
-        print "%(type_id)s: %(name)s" % vars()
+    for (stream_id_key, stream_id) in stream_keys.items():
+        name = streams[stream_id]
+        print "%(stream_id_key)s: %(name)s" % vars()
 
 def get_local_streams(streams = None):
     local_streams = {}
@@ -171,12 +181,14 @@ def get_local_streams(streams = None):
 
     return local_streams
 
-def select_stream(streams, task = "select"):
+def select_stream(streams, stream_keys, task = "select"):
     stream_selected = False
     while not stream_selected:
         print "Please enter the corresponding id number of the stream you wish to %(task)s forwarding:" % vars()
-        user_stream_id = raw_input()
-        if(user_stream_id.isdigit() and user_stream_id in streams):
+        user_input = raw_input()
+        if(user_input.isdigit()):
+            user_stream_id = int(user_input)
+        if(stream_keys[user_stream_id] in streams):
             config_path = "/usr/bin/toplog/logstash-forwarder/conf.d/%(user_stream_id)s.json" % vars()
             if not os.path.exists(config_path):
                 stream_selected = True
@@ -187,7 +199,7 @@ def select_stream(streams, task = "select"):
         else:
             print "Error, stream not found"
 
-    return user_stream_id
+    return stream_keys[user_stream_id]
 
 def disable_stream():
     disable_complete = False
@@ -195,9 +207,10 @@ def disable_stream():
     while not disable_complete:
         local_streams = get_local_streams(streams)
         if local_streams:
-            list_streams(local_streams, "The following streams are currently being forwarded from this machine:")
+            stream_keys = create_stream_keys(local_streams)
+            list_streams(local_streams, stream_keys, "The following streams are currently being forwarded from this machine:")
             print "Which stream would you like to disable? (This will not disable any other forwarders for this stream.)"
-            stream_id = select_stream(local_streams, "disable")
+            stream_id = select_stream(local_streams, stream_keys, "disable")
             name = local_streams[stream_id]
             config = "/usr/bin/toplog/logstash-forwarder/conf.d/%(stream_id)s.json" % vars()
             os.remove(config)
@@ -249,11 +262,12 @@ def add_file_to_stream(token = None, streams = None):
     add_complete = False
     if not token and not streams:
         token, streams = get_data("streams")
+    stream_keys = create_stream_keys(streams)
 
     while not add_complete:
         type_selected = False
-        list_streams(streams, "You have created the following streams:")
-        user_stream_id = select_stream(streams, "add")
+        list_streams(streams, stream_keys, "You have created the following streams:")
+        user_stream_id = select_stream(streams, stream_keys, "add")
         path = get_path()
         config = get_stream_config(token, path, user_stream_id)
         stream_config = add_file_to_stream_config(config)
@@ -383,7 +397,8 @@ if len(sys.argv) > 1:
         add_stream()
     elif "-l" in sys.argv:
         token, streams = get_data("streams")
-        list_streams(streams, "The following streams are currently being forwarded from this machine:")
+        stream_keys = create_stream_keys(streams)
+        list_streams(streams, stream_keys, "The following streams are currently being forwarded from this machine:")
     elif "-d" in sys.argv:
         check_installed(True)
         disable_stream()
