@@ -128,6 +128,19 @@ def get_path():
 
     return path
 
+def get_data(request):
+    token_valid = False
+    while not token_valid:
+        print "Please enter your authentication token:"
+        token = raw_input()
+        endpoint = "/%(request)s?access_token=%(token)s" % vars()
+        data = request_toplog(endpoint, "GET")
+        if data:
+            token_valid = True
+        else:
+            print "Error, authentication token not valid. Please re-enter or generate a new token"
+    return (token, data)
+
 def confirm_prompt(message):
     confirm_valid = False
     while not confirm_valid:
@@ -142,6 +155,55 @@ def confirm_prompt(message):
         else:
             print "Error, invalid response. Please only enter 'yes' or 'no'"
     return confirm
+
+def list_streams(streams, message):
+    print message
+    for (type_id, name) in streams.items():
+        print "%(type_id)s: %(name)s" % vars()
+
+def get_local_streams(streams = None):
+    local_streams = {}
+    filenames = next(os.walk("/usr/bin/toplog/logstash-forwarder/conf.d/"))[2]
+    for file in filenames:
+        stream_id = os.path.splitext(file)[0]
+        if stream_id in streams:
+            local_streams[stream_id] = streams[stream_id]
+
+    return local_streams
+
+def select_stream(streams):
+    stream_selected = False
+    while not stream_selected:
+        print "Please enter the corresponding id number of the stream you wish to select:"
+        user_stream_id = raw_input()
+        if(user_stream_id.isdigit() and user_stream_id in streams):
+            config_path = "/usr/bin/toplog/logstash-forwarder/conf.d/%(user_stream_id)s.json" % vars()
+            if not os.path.exists(os.path.dirname(config_path)):
+                stream_selected = True
+            else:
+                overwrite = confirm_prompt("Warning: files on this machine are currently being forwarded for this stream.\nThis will destroy the previous configuration. Would you like to continue?")
+                if overwrite:
+                    stream_selected = True
+        else:
+            print "Error, stream not found"
+
+    return user_stream_id
+
+def disable_stream():
+    disable_complete = False
+    token, streams = get_data("streams")
+    while not disable_complete:
+        local_streams = get_local_streams(streams)
+        list_streams(local_streams, "The following streams are currently being forwarded from this machine:")
+        print "Which stream would you like to disable? (This will not disable any other forwarders for this stream.)"
+        stream_id = select_stream(local_streams)
+        config = "/usr/bin/toplog/logstash-forwarder/conf.d/%(stream_id)s.json" % vars()
+        os.remove(config)
+        print "Stream disabled"
+        disable_complete = not confirm_prompt("Would you like to disable another stream?")
+
+    restart_service("disabled stream(s)")
+
 
 def get_stream_config(token, path, user_stream_id):
     endpoint = "/streams/%(user_stream_id)s/generate_configuration?access_token=%(token)s" % vars()
@@ -180,22 +242,10 @@ def add_file_to_stream_config(stream_config):
     return stream_config
 
 def add_file_to_stream():
-    token_valid = False
-
-    while not token_valid:
-        print "Please enter your authentication token:"
-        token = raw_input()
-        endpoint = "/streams?access_token=%(token)s" % vars()
-        streams = request_toplog(endpoint, "GET")
-        if streams:
-            token_valid = True
-        else:
-            print "Error, authentication token not valid. Please re-enter or generate a new token"
+    token, streams = get_data("streams")
 
     type_selected = False
-    print "You have created the following streams:"
-    for (type_id, name) in streams.items():
-        print "%(type_id)s: %(name)s" % vars()
+    list_streams(streams, "You have created the following streams:")
 
     while not type_selected:
         print "Please enter the corresponding id number of the stream you wish to forward to"
@@ -205,7 +255,7 @@ def add_file_to_stream():
             if not os.path.exists(os.path.dirname(config_path)):
                 type_selected = True
             else:
-                overwrite = confirm_prompt("Warning: files currently being forwarded for this stream.\nThis will overwrite the previous configuration. Would you like to continue?")
+                overwrite = confirm_prompt("Warning: files on this machine are currently being forwarded for this stream.\nThis will overwrite the previous configuration. Would you like to continue?")
                 if overwrite:
                     type_selected = True
         else:
@@ -227,20 +277,9 @@ def create_config(config):
 
 def create_stream():
     config_complete = False
-    is_multiple = False
-    token_valid = False
+
     while not config_complete:
-
-        while not token_valid:
-            print "Please enter your authentication token:"
-            token = raw_input()
-            endpoint = "/logs?access_token=%(token)s" % vars()
-            types = request_toplog(endpoint, "GET")
-            if types:
-                token_valid = True
-            else:
-                print "Error, authentication token not valid. Please re-enter or generate a new token"
-
+        token, types = get_data("logs")
 
         type_selected = False
         print "You have created the following log types:"
@@ -346,11 +385,18 @@ if len(sys.argv) > 1:
         restart_service("changed stream(s))")
     elif "-a" in sys.argv:
         add_stream()
+    elif "-l" in sys.argv:
+        token, streams = get_data("streams")
+        list_streams(streams, "The following streams are currently being forwarded from this machine:")
+    elif "-d" in sys.argv:
+        disable_stream()
     elif ("-h" in sys.argv or "--help"in sys.argv):
         print "[-r] Reinstall TopLog Logstash-Forwarder"
         print "[-u] Uninstall TopLog Logstash-Forwarder"
-        print "[-c] Change uploader configuration"
-        print "[-a] Add to existing stream"
+        print "[-c] Change a stream currently being forwarded by this machine"
+        print "[-a] Add file to an existing stream"
+        print "[-l] List streams currently being forwarded by this machine"
+        print "[-d] Disable a stream currently being forwarded by this machine"
         print "[-h] or [--help] List install.py command args"
     elif change_host:
         default_install(distrib)
