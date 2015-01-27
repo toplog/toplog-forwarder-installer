@@ -1,6 +1,5 @@
  #!/usr/bin/env python
 import urllib2
-import httplib
 import json
 import re
 import os.path
@@ -16,7 +15,7 @@ version = "1.1.0"
 
 def request_toplog(endpoint, method):
     headers = {"Accept": "application/json"}
-    connection = httplib.HTTPSConnection(globals()["toplog_server"])
+    connection = urllib2.urlopen(globals()["toplog_server"])
     request = connection.request(method, endpoint, "", headers)
     response = connection.getresponse()
     if(response.status == 200):
@@ -314,7 +313,11 @@ def create_stream():
         config_complete = not confirm_prompt("Would you like to create another stream [yes/no]?")
 
         print "Stream %(stream_name)s created." % vars()
-    # return stream_config
+
+def check_outdated():
+    outdated = os.path.exists("/usr/bin/toplog/logstash-forwarder/config.json")
+    if outdated:
+        print "It appears you have an outdated installation"
 
 def check_installed(required):
     installed = os.path.exists("/usr/bin/toplog/logstash-forwarder/bin/")
