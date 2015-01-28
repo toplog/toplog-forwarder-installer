@@ -26,9 +26,13 @@ This will prompt you to create a Toplog stream, set a log file to send to us and
 
 `[-h]` Displays install script's command args
 
-`[-a]` Add file(s) to existing Toplog stream
+`[-c]` Change a stream currently being forwarded by this machine
 
-`[-c]` Change current log stream
+`[-a]` Add file to an existing stream
+
+`[-l]` List streams currently being forwarded by this machine
+
+`[-d]` Disable a stream currently being forwarded by this machine
 
 `[-r]` Reinstalls the forwarder
 
