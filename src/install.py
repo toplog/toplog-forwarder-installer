@@ -1,4 +1,5 @@
  #!/usr/bin/env python
+import urllib
 import urllib2
 import json
 import re
@@ -6,24 +7,27 @@ import os.path
 import readline, glob
 import subprocess
 import sys
-import pprint #TODO: REMOVE THIS
 
 global toplog_server
 global version
-toplog_server = "app.toplog.io"
+toplog_server = "https://app.toplog.io"
 version = "1.1.0"
 
-def request_toplog(endpoint, method):
+def request_toplog(endpoint, method, data = None):
     headers = {"Accept": "application/json"}
-    connection = urllib2.urlopen(globals()["toplog_server"])
-    request = connection.request(method, endpoint, "", headers)
-    response = connection.getresponse()
-    if(response.status == 200):
-        body = response.read()
-        data = json.loads(body)
-    else:
+    url = globals()["toplog_server"] + endpoint
+    request = urllib2.Request(url, data, headers)
+    try:
+        response = urllib2.urlopen(request)
+        if(response.getcode() == 200):
+            body = response.read()
+            data = json.loads(body)
+        else:
+            data = False
+        response.close()
+    except urllib2.HTTPError, e:
         data = False
-    connection.close()
+
     return data
 
 def download_file(cloud_file, path, server = "http://files.toplog.io"):
@@ -86,9 +90,9 @@ def install_forwarder(distrib):
 
 
 def store_stream(token, path, user_type_id, stream_name):
-    escaped_stream_name = urllib2.quote(stream_name)
-    endpoint = "/streams?access_token=%(token)s&configuration_id=%(user_type_id)s&name=%(escaped_stream_name)s" % vars()
-    response = request_toplog(endpoint, "POST")
+    endpoint = "/streams"
+    data = urllib.urlencode({'access_token': token, 'configuration_id': user_type_id, 'name': stream_name})
+    response = request_toplog(endpoint, "POST", data)
 
     if response:
         for file_config in response["files"]:
@@ -214,7 +218,10 @@ def disable_stream():
             config = "/usr/bin/toplog/logstash-forwarder/conf.d/%(stream_id)s.json" % vars()
             os.remove(config)
             print "Stream %(name)s disabled" % vars()
-            disable_complete = not confirm_prompt("Would you like to disable another stream?")
+            if len(local_streams) > 1:
+                disable_complete = not confirm_prompt("Would you like to disable another stream?")
+            else:
+                disable_complete = True
         else:
             print "No streams currently being forwarded. Please enter 'sudo python install.py -h' to see full list of possible command arguments."
             exit()
@@ -285,22 +292,21 @@ def create_config(config):
 
 def create_stream():
     config_complete = False
-
+    token, types = get_data("logs")
+    type_keys = create_stream_keys(types)
     while not config_complete:
-        token, types = get_data("logs")
-
         type_selected = False
-        print "You have created the following log types:"
-        for (type_id, name) in types.items():
-            print "%(type_id)s: %(name)s" % vars()
 
+        list_streams(types, type_keys, "You have created the following log types:")
         while not type_selected:
             print "Please enter the corresponding id number of the log type you wish to forward"
-            user_type_id = raw_input()
-            if(user_type_id.isdigit() and user_type_id in types):
-                type_selected = True
-            else:
-                print "Error, log type not found"
+            user_input = raw_input()
+            if(user_input.isdigit()):
+                user_type_id = int(user_input)
+                if(type_keys[user_type_id] in types):
+                    type_selected = True
+                else:
+                    print "Error, log type not found"
 
         path = get_path()
 
@@ -317,7 +323,13 @@ def create_stream():
 def check_outdated():
     outdated = os.path.exists("/usr/bin/toplog/logstash-forwarder/config.json")
     if outdated:
-        print "It appears you have an outdated installation"
+        print "It appears you have previously installed with version < 1.1.\n Updating will require reinstallation & re-adding of streams"
+        update = confirm_prompt("Would you like to continue?")
+        if update:
+            uninstall_forwarder()
+            add_stream()
+        else:
+            exit()
 
 def check_installed(required):
     installed = os.path.exists("/usr/bin/toplog/logstash-forwarder/bin/")
@@ -326,8 +338,6 @@ def check_installed(required):
     elif not installed and required:
         print "It appears the TopLog Forwarder is not installed, please run 'sudo python install.py -h' for a list of command args"
         exit()
-    elif not installed and not required:
-        print "It appears the TopLog Forwarder is not installed. Will install after completing configuration"
 
     return installed
 
@@ -346,11 +356,23 @@ def default_install(distrib):
 
 def add_stream():
     installed = check_installed(False)
-    add_file_to_stream()
     if not installed:
+        print "It appears the TopLog Forwarder is not installed. Will install after completing configuration"
+        add_file_to_stream()
         install_forwarder(distrib)
     else:
+        add_file_to_stream()
         restart_service("added stream(s)")
+
+def list_local_streams():
+    check_installed(True)
+    token, streams = get_data("streams")
+    local_streams = get_local_streams(streams)
+    local_stream_keys = create_stream_keys(local_streams)
+    if local_streams:
+        list_streams(local_streams, local_stream_keys, "The following streams are currently being forwarded from this machine:")
+    else:
+        print "No streams currently being forwarded. Please enter 'sudo python install.py -h' to see full list of possible command arguments."
 
 #check permissions
 if not os.geteuid() == 0:
@@ -368,6 +390,8 @@ if code != 1:
     distrib = "redhat"
 else:
     distrib = "debian"
+
+check_outdated()
 
 #command args
 change_host = False
@@ -399,9 +423,7 @@ if len(sys.argv) > 1:
     elif "-a" in sys.argv:
         add_stream()
     elif "-l" in sys.argv:
-        token, streams = get_data("streams")
-        stream_keys = create_stream_keys(streams)
-        list_streams(streams, stream_keys, "The following streams are currently being forwarded from this machine:")
+        list_local_streams()
     elif "-d" in sys.argv:
         check_installed(True)
         disable_stream()
