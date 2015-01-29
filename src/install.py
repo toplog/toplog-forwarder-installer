@@ -320,13 +320,13 @@ def create_stream():
 
         print "Stream %(stream_name)s created." % vars()
 
-def check_outdated():
+def check_outdated(distrib):
     outdated = os.path.exists("/usr/bin/toplog/logstash-forwarder/config.json")
     if outdated:
         print "It appears you have previously installed with version < 1.1.\n Updating will require reinstallation & re-adding of streams"
         update = confirm_prompt("Would you like to continue?")
         if update:
-            uninstall_forwarder()
+            uninstall_forwarder(distrib)
             add_stream()
         else:
             exit()
@@ -391,7 +391,7 @@ if code != 1:
 else:
     distrib = "debian"
 
-check_outdated()
+check_outdated(distrib)
 
 #command args
 change_host = False
