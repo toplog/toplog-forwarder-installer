@@ -328,6 +328,7 @@ def check_outdated(distrib):
         if update:
             uninstall_forwarder(distrib)
             add_stream()
+            exit()
         else:
             exit()
 
