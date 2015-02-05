@@ -65,10 +65,10 @@ def install_forwarder(distrib):
     install_directory = "/var/log/toplog/"
 
     if distrib == "debian":
-        download_file("logstash-forwarder_master_amd64.deb", "/opt/logstash-forwarder/logstash-forwarder_master_amd64.deb")
+        download_file("logstash-forwarder_1.2_amd64.deb", "/opt/logstash-forwarder/logstash-forwarder_master_amd64.deb")
         print "Installing Logstash-Forwarder . . ."
         subprocess.call(["dpkg", "-i", "/opt/logstash-forwarder/logstash-forwarder_master_amd64.deb"])
-        download_file("logstash_forwarder_master_debian.init", "/etc/init.d/logstash-forwarder")
+        download_file("logstash_forwarder_1.2_debian.init", "/etc/init.d/logstash-forwarder")
         download_file("logstash_forwarder_debian.defaults", "/etc/default/logstash-forwarder")
     elif distrib == "redhat":
         download_file("logstash-forwarder-0.3.1-1.x86_64.rpm", "/opt/logstash-forwarder/logstash-forwarder-0.3.1-1.x86_64.rpm")
