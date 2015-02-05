@@ -11,6 +11,7 @@ import sys
 global toplog_server
 global version
 toplog_server = "https://app.toplog.io"
+file_server = "http://files.toplog.io"
 version = "1.1.0"
 
 def request_toplog(endpoint, method, data = None):
@@ -30,7 +31,7 @@ def request_toplog(endpoint, method, data = None):
 
     return data
 
-def download_file(cloud_file, path, server = "http://files.toplog.io"):
+def download_file(cloud_file, path, server = file_server):
     url = "%(server)s/%(cloud_file)s" % vars()
     if not os.path.exists(os.path.dirname(path)):
         os.makedirs(os.path.dirname(path))
@@ -57,14 +58,17 @@ def download_file(cloud_file, path, server = "http://files.toplog.io"):
 
     f.close()
 
+def print_success(task):
+    print "Successfully %(task)s. Please check /var/log/toplog/logstash-forwarder.log to confirm" % vars()
+
 def install_forwarder(distrib):
     install_directory = "/var/log/toplog/"
 
     if distrib == "debian":
-        download_file("logstash-forwarder_0.3.1_amd64.deb", "/opt/logstash-forwarder/logstash-forwarder_0.3.1_amd64.deb")
+        download_file("logstash-forwarder_master_amd64.deb", "/opt/logstash-forwarder/logstash-forwarder_master_amd64.deb")
         print "Installing Logstash-Forwarder . . ."
-        subprocess.call(["dpkg", "-i", "/opt/logstash-forwarder/logstash-forwarder_0.3.1_amd64.deb"])
-        download_file("logstash_forwarder_debian.init", "/etc/init.d/logstash-forwarder")
+        subprocess.call(["dpkg", "-i", "/opt/logstash-forwarder/logstash-forwarder_master_amd64.deb"])
+        download_file("logstash_forwarder_master_debian.init", "/etc/init.d/logstash-forwarder")
         download_file("logstash_forwarder_debian.defaults", "/etc/default/logstash-forwarder")
     elif distrib == "redhat":
         download_file("logstash-forwarder-0.3.1-1.x86_64.rpm", "/opt/logstash-forwarder/logstash-forwarder-0.3.1-1.x86_64.rpm")
@@ -86,8 +90,7 @@ def install_forwarder(distrib):
         os.makedirs(install_directory)
     subprocess.call(["touch", "/var/log/toplog/logstash-forwarder.log"])
     subprocess.call(["/etc/init.d/logstash-forwarder", "start"])
-    print "Successfully installed TopLog's Logstash-Forwarder. Please check /var/log/toplog/logstash-forwarder.log to confirm"
-
+    print_success("installed TopLog's Logstash-Forwarder")
 
 def store_stream(token, path, user_type_id, stream_name):
     endpoint = "/streams"
@@ -345,7 +348,7 @@ def check_installed(required):
 def restart_service(task):
     print "Restarting logstash-forwarder service . . ."
     subprocess.call(["service", "logstash-forwarder", "restart"])
-    print "Successfully %(task)s, please check /usr/bin/toplog/logs/logstash-forwarder.log to confirm" % vars()
+    print_success(task):
 
 def default_install(distrib):
     installed = check_installed(False)

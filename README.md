@@ -37,3 +37,17 @@ This will prompt you to create a Toplog stream, set a log file to send to us and
 `[-r]` Reinstalls the forwarder
 
 `[-u]` Uninstalls the forwarder
+
+###More info:
+This script will install our packaged [logstash-forwarder](https://github.com/elasticsearch/logstash-forwarder/)
+and set it up as a init.d or sysconfig service.
+
+###Files written to:
+A number of files will be created/modified upon installation & various configuration options.
+
+* Install Directory: `/usr/bin/toplog/logstash-forwarder/`
+  * Public SSL certicate: `./ssh/toplog-forwarder.pub`
+  * Logstash-forwarder configuration files: `./conf.d`
+  * Service scripts:
+    * Debian: `/etc/init.d/logstash-forwarder`, `/etc/default/logstash-forwarder`
+    * Red Hat: `/etc/init.d/logstash-forwarder`, `/etc/sysconfig/logstash-forwarder`
