@@ -348,7 +348,7 @@ def check_installed(required):
 def restart_service(task):
     print "Restarting logstash-forwarder service . . ."
     subprocess.call(["service", "logstash-forwarder", "restart"])
-    print_success(task):
+    print_success(task)
 
 def default_install(distrib):
     installed = check_installed(False)
