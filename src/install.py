@@ -26,7 +26,7 @@ def request_toplog(endpoint, method, data = None):
         else:
             data = False
         response.close()
-    except (urllib2.HTTPError, ValueError) e:
+    except (urllib2.HTTPError, ValueError) as e:
         data = False
 
     return data
