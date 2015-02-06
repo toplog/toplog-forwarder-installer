@@ -243,6 +243,15 @@ def get_stream_config(token, path, user_stream_id):
         print "Error: Could not get configuration for stream %(user_stream_id)s. Please try again" % vars()
         exit()
 
+def get_network_config(token):
+    endpoint = "/streams/generate_network_configuration?access_token=%(token)s" % vars()
+    response = request_toplog(endpoint, "GET")
+    if response:
+        return response
+    else:
+        print "Error: Could not get configuration for stream %(user_stream_id)s. Please try again" % vars()
+        exit()
+
 def add_file_to_stream_config(stream_config):
     is_multiple = False
     add_complete = False
@@ -280,13 +289,15 @@ def add_file_to_stream(token = None, streams = None):
         path = get_path()
         config = get_stream_config(token, path, user_stream_id)
         stream_config = add_file_to_stream_config(config)
-        create_config(config)
+        write_config(config, config['files'][0]['fields']['stream_id'])
         add_complete = not confirm_prompt("Would you like to add to another stream?")
 
+    net_config = get_network_config(token)
+    write_config(net_config, "network")
 
-def create_config(config):
-    stream_id = config['files'][0]['fields']['stream_id']
-    config_path = "/usr/bin/toplog/logstash-forwarder/conf.d/%(stream_id)s.json" % vars()
+
+def write_config(config, name):
+    config_path = "/usr/bin/toplog/logstash-forwarder/conf.d/%(name)s.json" % vars()
     if not os.path.exists(os.path.dirname(config_path)):
         os.makedirs(os.path.dirname(config_path))
     #write config file
@@ -317,11 +328,14 @@ def create_stream():
         stream_name = raw_input()
         config = store_stream(token, path, user_type_id, stream_name)
         stream_config = add_file_to_stream_config(config)
-        create_config(stream_config)
+        write_config(stream_config, config['files'][0]['fields']['stream_id'])
 
         config_complete = not confirm_prompt("Would you like to create another stream [yes/no]?")
 
         print "Stream %(stream_name)s created." % vars()
+
+    net_config = get_network_config(token)
+    write_config(net_config, "network")
 
 def check_outdated(distrib):
     outdated = os.path.exists("/usr/bin/toplog/logstash-forwarder/config.json")
