@@ -348,11 +348,11 @@ def force_reinstall(distrib, version):
         exit()
 
 def check_outdated(distrib):
-    outdated = os.path.exists("/usr/bin/toplog/logstash-forwarder/config.json")
-    outdated_1.2 = not os.path.exists("/usr/bin/toplog/logstash-forwarder/conf.d/network.json")
-    if outdated:
+    outdated_1_1 = os.path.exists("/usr/bin/toplog/logstash-forwarder/config.json")
+    outdated_1_2 = not os.path.exists("/usr/bin/toplog/logstash-forwarder/conf.d/network.json")
+    if outdated_1_1:
         force_reinstall(distrib, '1.1')
-    elif outdated_1.2:
+    elif outdated_1_2:
         force_reinstall(distrib, '1.2')
 
 def check_installed(required):
