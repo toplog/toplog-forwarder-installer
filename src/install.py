@@ -249,7 +249,7 @@ def get_network_config(token):
     if response:
         return response
     else:
-        print "Error: Could not get configuration for stream %(user_stream_id)s. Please try again" % vars()
+        print "Error: Could not get network configuration. Please try again" % vars()
         exit()
 
 def add_file_to_stream_config(stream_config):
@@ -337,17 +337,23 @@ def create_stream():
     net_config = get_network_config(token)
     write_config(net_config, "network")
 
+def force_reinstall(distrib, version):
+    print "It appears you have previously installed with version < %(version)s\nUpdating will require reinstallation & re-adding of streams" % vars()
+    update = confirm_prompt("Would you like to continue?")
+    if update:
+        uninstall_forwarder(distrib)
+        add_stream()
+        exit()
+    else:
+        exit()
+
 def check_outdated(distrib):
     outdated = os.path.exists("/usr/bin/toplog/logstash-forwarder/config.json")
+    outdated_1.2 = not os.path.exists("/usr/bin/toplog/logstash-forwarder/conf.d/network.json")
     if outdated:
-        print "It appears you have previously installed with version < 1.1.\n Updating will require reinstallation & re-adding of streams"
-        update = confirm_prompt("Would you like to continue?")
-        if update:
-            uninstall_forwarder(distrib)
-            add_stream()
-            exit()
-        else:
-            exit()
+        force_reinstall(distrib, '1.1')
+    elif outdated_1.2:
+        force_reinstall(distrib, '1.2')
 
 def check_installed(required):
     installed = os.path.exists("/usr/bin/toplog/logstash-forwarder/bin/")
