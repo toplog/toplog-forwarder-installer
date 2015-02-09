@@ -325,7 +325,7 @@ def create_stream():
 
         print "Please enter a name for your stream:"
         stream_name = raw_input()
-        config = store_stream(token, path, user_type_id, stream_name)
+        config = store_stream(token, path, type_keys[user_type_id], stream_name)
         stream_config = add_file_to_stream_config(config)
         write_config(stream_config, config['files'][0]['fields']['stream_id'])
 
