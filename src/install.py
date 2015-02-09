@@ -59,10 +59,10 @@ def download_file(cloud_file, path, server = file_server):
     f.close()
 
 def print_success(task):
-    print "Successfully %(task)s. Please check /var/log/toplog/logstash-forwarder.log to confirm" % vars()
+    print "Successfully %(task)s. Please check /usr/bin/toplog/logs/logstash-forwarder.log to confirm" % vars()
 
 def install_forwarder(distrib):
-    install_directory = "/var/log/toplog/"
+    install_directory = "/usr/bin/toplog/"
 
     if distrib == "debian":
         download_file("logstash-forwarder_1.2_amd64.deb", "/opt/logstash-forwarder/logstash-forwarder_master_amd64.deb")
@@ -80,15 +80,14 @@ def install_forwarder(distrib):
         print "Exception, unrecognized distribution %(distrib)s" % vars()
         exit()
 
+    if not os.path.exists(install_directory):
+        os.makedirs(install_directory)
     subprocess.call(["cp", "-r", "/opt/logstash-forwarder", "/usr/bin/toplog/"])
     subprocess.call(["rm", "-rf", "/opt/logstash-forwarder"])
     download_file("toplog-forwarder.pub", "/usr/bin/toplog/logstash-forwarder/ssl/toplog-forwarder.pub")
     subprocess.call(["chmod", "640", "/usr/bin/toplog/logstash-forwarder/ssl/toplog-forwarder.pub"])
     #set up forwarder as service
     subprocess.call(["chmod", "0755", "/etc/init.d/logstash-forwarder"])
-    if not os.path.exists(install_directory):
-        os.makedirs(install_directory)
-    subprocess.call(["touch", "/var/log/toplog/logstash-forwarder.log"])
     subprocess.call(["/etc/init.d/logstash-forwarder", "start"])
     print_success("installed TopLog's Logstash-Forwarder")
 
