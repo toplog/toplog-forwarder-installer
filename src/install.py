@@ -71,9 +71,9 @@ def install_forwarder(distrib):
         download_file("logstash_forwarder_1.2_debian.init", "/etc/init.d/logstash-forwarder")
         download_file("logstash_forwarder_debian.defaults", "/etc/default/logstash-forwarder")
     elif distrib == "redhat":
-        download_file("logstash-forwarder-0.3.1-1.x86_64.rpm", "/opt/logstash-forwarder/logstash-forwarder-0.3.1-1.x86_64.rpm")
+        download_file("logstash-forwarder_1.2_x86_64.rpm", "/opt/logstash-forwarder/logstash-forwarder_1.2_x86_64.rpm")
         print "Installing Logstash-Forwarder . . ."
-        subprocess.call(["rpm", "-i", "/opt/logstash-forwarder/logstash-forwarder-0.3.1-1.x86_64.rpm"])
+        subprocess.call(["rpm", "-i", "/opt/logstash-forwarder/logstash-forwarder_1.2_x86_64.rpm"])
         download_file("logstash_forwarder_redhat.init", "/etc/init.d/logstash-forwarder")
         download_file("logstash_forwarder_redhat.sysconfig", "/etc/sysconfig/logstash-forwarder")
     else:
