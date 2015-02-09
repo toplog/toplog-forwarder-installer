@@ -12,7 +12,7 @@ global toplog_server
 global version
 toplog_server = "https://app.toplog.io"
 file_server = "http://files.toplog.io"
-version = "1.1.0"
+version = "1.2.2"
 
 def request_toplog(endpoint, method, data = None):
     headers = {"Accept": "application/json"}
