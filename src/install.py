@@ -63,6 +63,7 @@ def print_success(task):
 
 def install_forwarder(distrib):
     install_directory = "/usr/bin/toplog/"
+    log_directory = "/usr/bin/toplog/logs/"
 
     if distrib == "debian":
         download_file("logstash-forwarder_1.2_amd64.deb", "/opt/logstash-forwarder/logstash-forwarder_master_amd64.deb")
@@ -82,6 +83,7 @@ def install_forwarder(distrib):
 
     if not os.path.exists(install_directory):
         os.makedirs(install_directory)
+    os.makedirs(log_directory)
     subprocess.call(["cp", "-r", "/opt/logstash-forwarder", "/usr/bin/toplog/"])
     subprocess.call(["rm", "-rf", "/opt/logstash-forwarder"])
     download_file("toplog-forwarder.pub", "/usr/bin/toplog/logstash-forwarder/ssl/toplog-forwarder.pub")
