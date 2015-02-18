@@ -61,6 +61,12 @@ def download_file(cloud_file, path, server = file_server):
 def print_success(task):
     print "Successfully %(task)s. Please check /usr/bin/toplog/logs/logstash-forwarder.log to confirm" % vars()
 
+def set_logrotate(log_directory):
+    content = "%(log_directory)s/logstash-forwarder.log {\tdaily\n \trotate 5\n \tcopytruncate\n \tdelaycompress\n \tcompress\n \tnotifempty\n \tmissingok\n }\n" % vars()
+    f = open("/etc/logrotate.d/toplog", "wb")
+    f.write(content)
+    f.close
+
 def install_forwarder(distrib):
     install_directory = "/usr/bin/toplog/"
     log_directory = "/usr/bin/toplog/logs/"
@@ -84,6 +90,7 @@ def install_forwarder(distrib):
     if not os.path.exists(install_directory):
         os.makedirs(install_directory)
     os.makedirs(log_directory)
+    set_logrotate(log_directory)
     subprocess.call(["cp", "-r", "/opt/logstash-forwarder", "/usr/bin/toplog/"])
     subprocess.call(["rm", "-rf", "/opt/logstash-forwarder"])
     download_file("toplog-forwarder.pub", "/usr/bin/toplog/logstash-forwarder/ssl/toplog-forwarder.pub")
