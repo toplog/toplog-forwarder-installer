@@ -62,7 +62,7 @@ def print_success(task):
     print "Successfully %(task)s. Please check /usr/bin/toplog/logs/logstash-forwarder.log to confirm" % vars()
 
 def set_logrotate(log_directory):
-    content = "%(log_directory)s/logstash-forwarder.log {\tdaily\n \trotate 5\n \tcopytruncate\n \tdelaycompress\n \tcompress\n \tnotifempty\n \tmissingok\n }\n" % vars()
+    content = "%(log_directory)slogstash-forwarder.log {\n\tdaily\n \trotate 5\n \tcopytruncate\n \tdelaycompress\n \tcompress\n \tnotifempty\n \tmissingok\n }\n" % vars()
     f = open("/etc/logrotate.d/toplog", "wb")
     f.write(content)
     f.close
