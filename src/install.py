@@ -338,7 +338,7 @@ def create_stream():
         stream_config = add_file_to_stream_config(config)
         write_config(stream_config, config['files'][0]['fields']['stream_id'])
 
-        config_complete = not confirm_prompt("Would you like to create another stream [yes/no]?")
+        config_complete = not confirm_prompt("Would you like to create another stream?")
 
         print "Stream %(stream_name)s created." % vars()
 
