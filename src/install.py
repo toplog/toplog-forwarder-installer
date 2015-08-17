@@ -8,11 +8,19 @@ import readline, glob
 import subprocess
 import sys
 
+from pprint import pprint
+
 global toplog_server
 global version
+global log_directory
+global install_directory
+global config_directory
 toplog_server = "https://app.toplog.io"
 file_server = "http://files.toplog.io"
-version = "1.2.2"
+version = "1.3"
+install_directory = "/usr/local/logstash-forwarder/"
+log_directory = "/var/log/logstash-forwarder/"
+config_directory = "/etc/logstash-forwarder/conf.d/"
 
 def request_toplog(endpoint, method, data = None):
     headers = {"Accept": "application/json"}
@@ -58,8 +66,8 @@ def download_file(cloud_file, path, server = file_server):
 
     f.close()
 
-def print_success(task):
-    print "Successfully %(task)s. Please check /usr/bin/toplog/logs/logstash-forwarder.log to confirm" % vars()
+def print_success(task, log_directory):
+    print "Successfully %(task)s. Please check %(log_directory)slogstash-forwarder.log to confirm" % vars()
 
 def set_logrotate(log_directory):
     content = "%(log_directory)slogstash-forwarder.log {\n\tdaily\n \trotate 5\n \tcopytruncate\n \tdelaycompress\n \tcompress\n \tnotifempty\n \tmissingok\n }\n" % vars()
@@ -68,37 +76,35 @@ def set_logrotate(log_directory):
     f.close
 
 def install_forwarder(distrib):
-    install_directory = "/usr/bin/toplog/"
-    log_directory = "/usr/bin/toplog/logs/"
-
     if distrib == "debian":
         download_file("logstash-forwarder_1.2_amd64.deb", "/opt/logstash-forwarder/logstash-forwarder_master_amd64.deb")
         print "Installing Logstash-Forwarder . . ."
         subprocess.call(["dpkg", "-i", "/opt/logstash-forwarder/logstash-forwarder_master_amd64.deb"])
-        download_file("logstash_forwarder_1.2_debian.init", "/etc/init.d/logstash-forwarder")
-        download_file("logstash_forwarder_debian.defaults", "/etc/default/logstash-forwarder")
+        download_file("logstash_forwarder_1.3_debian.init", "/etc/init.d/logstash-forwarder")
+        download_file("logstash_forwarder_1.3_debian.defaults", "/etc/default/logstash-forwarder")
     elif distrib == "redhat":
         download_file("logstash-forwarder_1.2_x86_64.rpm", "/opt/logstash-forwarder/logstash-forwarder_1.2_x86_64.rpm")
         print "Installing Logstash-Forwarder . . ."
         subprocess.call(["rpm", "-i", "/opt/logstash-forwarder/logstash-forwarder_1.2_x86_64.rpm"])
-        download_file("logstash_forwarder_redhat.init", "/etc/init.d/logstash-forwarder")
-        download_file("logstash_forwarder_redhat.sysconfig", "/etc/sysconfig/logstash-forwarder")
+        download_file("logstash_forwarder_1.3_redhat.init", "/etc/init.d/logstash-forwarder")
+        download_file("logstash_forwarder_1.3_redhat.sysconfig", "/etc/sysconfig/logstash-forwarder")
     else:
         print "Exception, unrecognized distribution %(distrib)s" % vars()
         exit()
 
     if not os.path.exists(install_directory):
         os.makedirs(install_directory)
-    os.makedirs(log_directory)
-    set_logrotate(log_directory)
-    subprocess.call(["cp", "-r", "/opt/logstash-forwarder", "/usr/bin/toplog/"])
+    if not os.path.exists(log_directory):
+        os.makedirs(log_directory)
+        set_logrotate(log_directory)
+    subprocess.call(["cp", "-rf", "/opt/logstash-forwarder/bin", install_directory])
     subprocess.call(["rm", "-rf", "/opt/logstash-forwarder"])
-    download_file("toplog-forwarder.pub", "/usr/bin/toplog/logstash-forwarder/ssl/toplog-forwarder.pub")
-    subprocess.call(["chmod", "640", "/usr/bin/toplog/logstash-forwarder/ssl/toplog-forwarder.pub"])
+    download_file("toplog-forwarder.pub", "/etc/logstash-forwarder/ssl/toplog-forwarder.pub")
+    subprocess.call(["chmod", "640", "/etc/logstash-forwarder/ssl/toplog-forwarder.pub"])
     #set up forwarder as service
     subprocess.call(["chmod", "0755", "/etc/init.d/logstash-forwarder"])
     subprocess.call(["/etc/init.d/logstash-forwarder", "start"])
-    print_success("installed TopLog's Logstash-Forwarder")
+    print_success("installed TopLog's Logstash-Forwarder", log_directory)
 
 def store_stream(token, path, user_type_id, stream_name):
     endpoint = "/streams"
@@ -114,7 +120,7 @@ def store_stream(token, path, user_type_id, stream_name):
         print "Error: Could not create stream %(stream_name)s. Please try again" % vars()
         exit()
 
-def uninstall_forwarder(distrib):
+def uninstall_forwarder(distrib, uninstall_directory = install_directory):
     subprocess.call(["service", "logstash-forwarder", "stop"])
 
     if distrib == "debian":
@@ -124,7 +130,9 @@ def uninstall_forwarder(distrib):
     else:
         print "Exception, unrecognized method in request_toplog"
 
-    subprocess.call(["rm", "-rf", "/usr/bin/toplog/"])
+    subprocess.call(["rm", "-rf", uninstall_directory])
+    if os.path.exists(log_directory):
+        subprocess.call(["rm", "-rf", log_directory])
     print "Successfully uninstalled TopLog Logstash-Forwarder uploader"
 
 def get_path():
@@ -187,7 +195,7 @@ def list_streams(streams, stream_keys, message):
 
 def get_local_streams(streams = None):
     local_streams = {}
-    filenames = next(os.walk("/usr/bin/toplog/logstash-forwarder/conf.d/"))[2]
+    filenames = next(os.walk(config_directory))[2]
     for file in filenames:
         stream_id = os.path.splitext(file)[0]
         if stream_id in streams:
@@ -195,7 +203,7 @@ def get_local_streams(streams = None):
 
     return local_streams
 
-def select_stream(streams, stream_keys, task = "select"):
+def select_stream(streams, stream_keys, task = "select", dir = config_directory):
     stream_selected = False
     while not stream_selected:
         print "Please enter the corresponding id number of the stream you wish to %(task)s forwarding:" % vars()
@@ -203,7 +211,7 @@ def select_stream(streams, stream_keys, task = "select"):
         if(user_input.isdigit()):
             user_stream_id = int(user_input)
         if(stream_keys[user_stream_id] in streams):
-            config_path = "/usr/bin/toplog/logstash-forwarder/conf.d/%(user_stream_id)s.json" % vars()
+            config_path = "%(dir)s%(user_stream_id)s.json" % vars()
             if not os.path.exists(config_path):
                 stream_selected = True
             else:
@@ -226,7 +234,7 @@ def disable_stream():
             print "Which stream would you like to disable? (This will not disable any other forwarders for this stream.)"
             stream_id = select_stream(local_streams, stream_keys, "disable")
             name = local_streams[stream_id]
-            config = "/usr/bin/toplog/logstash-forwarder/conf.d/%(stream_id)s.json" % vars()
+            config = "%(config_directory)s%(stream_id)s.json" % vars()
             os.remove(config)
             print "Stream %(name)s disabled" % vars()
             if len(local_streams) > 1:
@@ -304,8 +312,8 @@ def add_file_to_stream(token = None, streams = None):
     write_config(net_config, "network")
 
 
-def write_config(config, name):
-    config_path = "/usr/bin/toplog/logstash-forwarder/conf.d/%(name)s.json" % vars()
+def write_config(config, name, dir = config_directory):
+    config_path = "%(dir)s%(name)s.json" % vars()
     if not os.path.exists(os.path.dirname(config_path)):
         os.makedirs(os.path.dirname(config_path))
     #write config file
@@ -349,22 +357,19 @@ def force_reinstall(distrib, version):
     print "It appears you have previously installed with version < %(version)s\nUpdating will require reinstallation & re-adding of streams" % vars()
     update = confirm_prompt("Would you like to continue?")
     if update:
-        uninstall_forwarder(distrib)
+        uninstall_forwarder(distrib, "/usr/bin/toplog/logstash-forwarder/")
         add_stream()
         exit()
     else:
         exit()
 
 def check_outdated(distrib):
-    outdated_1_1 = os.path.exists("/usr/bin/toplog/logstash-forwarder/config.json")
-    outdated_1_2 = not os.path.exists("/usr/bin/toplog/logstash-forwarder/conf.d/network.json")
-    if outdated_1_1:
-        force_reinstall(distrib, '1.1')
-    elif outdated_1_2 and check_installed(False):
-        force_reinstall(distrib, '1.2')
+    outdated_1_3 = os.path.exists("/usr/bin/toplog/logstash-forwarder/bin/")
+    if outdated_1_3:
+        force_reinstall(distrib, '1.3')
 
 def check_installed(required):
-    installed = os.path.exists("/usr/bin/toplog/logstash-forwarder/bin/")
+    installed = os.path.exists(install_directory)
     if installed and not required:
         print "It appears the TopLog Forwarder is already installed. Any changes will be applied to current installation."
     elif not installed and required:
@@ -376,7 +381,7 @@ def check_installed(required):
 def restart_service(task):
     print "Restarting logstash-forwarder service . . ."
     subprocess.call(["service", "logstash-forwarder", "restart"])
-    print_success(task)
+    print_success(task, log_directory)
 
 def default_install(distrib):
     installed = check_installed(False)
