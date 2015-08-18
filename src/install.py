@@ -8,8 +8,6 @@ import readline, glob
 import subprocess
 import sys
 
-from pprint import pprint
-
 global toplog_server
 global version
 global log_directory
@@ -150,17 +148,29 @@ def get_path():
 
     return path
 
-def get_data(request):
+def send_request(request, token):
+    endpoint = "/%(request)s?access_token=%(token)s" % vars()
+    return request_toplog(endpoint, "GET")
+
+def check_token(request):
     token_valid = False
     while not token_valid:
         print "Please enter your authentication token:"
         token = raw_input()
-        endpoint = "/%(request)s?access_token=%(token)s" % vars()
-        data = request_toplog(endpoint, "GET")
-        if data:
+        data = send_request(request, token)
+        if data is not False:
             token_valid = True
         else:
             print "Error, authentication token not valid. Please re-enter or generate a new token"
+    return (token, data)
+
+def get_data(request, required = True):
+    token, data = check_token(request)
+    if not data and required:
+        if request == "logs":
+            print "Error, no log types found. You must create a log type to continue."
+        elif request == "streams":
+            print "Error, no streams found. Please enter 'sudo python install' to create a stream."
     return (token, data)
 
 def confirm_prompt(message):
@@ -234,7 +244,7 @@ def disable_stream():
             print "Which stream would you like to disable? (This will not disable any other forwarders for this stream.)"
             stream_id = select_stream(local_streams, stream_keys, "disable")
             name = local_streams[stream_id]
-            config = "%(config_directory)s%(stream_id)s.json" % vars()
+            config = config_directory + "%(stream_id)s.json" % vars()
             os.remove(config)
             print "Stream %(name)s disabled" % vars()
             if len(local_streams) > 1:
@@ -320,9 +330,13 @@ def write_config(config, name, dir = config_directory):
     with open(config_path, "w") as outfile:
         json.dump(config, outfile, indent=4, sort_keys=True)
 
-def create_stream():
+def create_stream(token = None):
     config_complete = False
-    token, types = get_data("logs")
+    if token:
+        types = send_request("logs", token)
+    else:
+        token, types = get_data("logs", True)
+
     type_keys = create_stream_keys(types)
     while not config_complete:
         type_selected = False
@@ -354,11 +368,11 @@ def create_stream():
     write_config(net_config, "network")
 
 def force_reinstall(distrib, version):
-    print "It appears you have previously installed with version < %(version)s\nUpdating will require reinstallation & re-adding of streams" % vars()
+    print "It appears you have previously installed with version < %(version)s\nUpdating will require reinstallation & re-adding of streams\n Warning: You will need to enter your authentication token." % vars()
     update = confirm_prompt("Would you like to continue?")
     if update:
         uninstall_forwarder(distrib, "/usr/bin/toplog/logstash-forwarder/")
-        add_stream()
+        default_install(distrib)
         exit()
     else:
         exit()
@@ -385,7 +399,15 @@ def restart_service(task):
 
 def default_install(distrib):
     installed = check_installed(False)
-    create_stream()
+
+    token, data = get_data("streams", False)
+    if data:
+        if confirm_prompt("It appears you have streams created. Would you like to forward a log to an existing stream?"):
+            add_file_to_stream(token, data)
+        else:
+            create_stream(token)
+    else:
+        create_stream(token)
     if not installed:
         install_forwarder(distrib)
     else:
